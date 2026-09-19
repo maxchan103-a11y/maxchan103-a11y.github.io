@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#163b72">
+  <title>AI 陪讀</title>
+  <meta name="description" content="拍下任何普通話教材，在裝置上辨識文字、逐句聽讀及練習。">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23163b72'/%3E%3Cpath d='M15 18c8-3 14-1 17 3 3-4 9-6 17-3v29c-8-2-14 0-17 4-3-4-9-6-17-4z' fill='%23fff'/%3E%3Cpath d='M32 21v30' stroke='%2344c3b5' stroke-width='4'/%3E%3C/svg%3E">
+  <style>
+    :root{--ink:#15304f;--muted:#65758b;--blue:#163b72;--sky:#e8f4ff;--mint:#44c3b5;--cream:#fff9ee;--card:#fff;--line:#dce7f2;--warn:#f5a524;--shadow:0 18px 50px rgba(31,66,105,.13)}
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(150deg,#eff8ff 0%,#fffaf1 52%,#edfbf8 100%);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif;min-height:100vh}
+    button,input,select,textarea{font:inherit} button{cursor:pointer} button:disabled{cursor:not-allowed;opacity:.48}.shell{width:min(100%,500px);min-height:100vh;margin:auto;padding:18px 18px calc(28px + env(safe-area-inset-bottom))}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.brand{display:flex;align-items:center;gap:10px;font-size:1.18rem;font-weight:800}.mark{width:38px;height:38px;border-radius:12px;background:var(--blue);display:grid;place-items:center;color:white;font-size:20px;box-shadow:0 7px 16px #173e7340}.step{font-size:.83rem;color:var(--muted);font-weight:700}
+    .screen{display:none}.screen.active{display:block;animation:appear .28s ease}@keyframes appear{from{opacity:.2;transform:translateY(6px)}to{opacity:1;transform:none}}
+    h1{font-size:clamp(1.65rem,7vw,2.35rem);line-height:1.18;margin:12px 0 8px}p{font-size:1rem;line-height:1.65;margin:0;color:var(--muted)}
+    .upload{margin-top:22px;background:rgba(255,255,255,.9);border:2px dashed #a8c3df;border-radius:26px;padding:28px 18px;text-align:center;box-shadow:var(--shadow)}.camera{font-size:52px;line-height:1}.upload h2{font-size:1.25rem;margin:12px 0 5px}.upload input{display:none}
+    .btn{border:0;border-radius:17px;padding:15px 18px;min-height:54px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;width:100%}.primary{background:var(--blue);color:#fff;box-shadow:0 10px 24px #173e7340}.secondary{background:white;color:var(--blue);border:1px solid var(--line)}.btn:active{transform:scale(.985)}.actions{display:grid;gap:10px;margin-top:18px}.small-note{font-size:.82rem;margin-top:14px}
+    .sample{margin-top:18px;padding:14px 16px;border-radius:16px;background:#ffffff99;border:1px solid var(--line);font-size:.88rem;color:var(--muted)}
+    .analysis{background:white;border-radius:26px;padding:20px;box-shadow:var(--shadow)}.thumb{height:155px;border-radius:19px;background:linear-gradient(145deg,#dff1ff,#fff6d9);display:grid;place-items:center;overflow:hidden;margin-bottom:18px}.thumb img{width:100%;height:100%;object-fit:cover}.lesson-letters{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.pill{width:42px;height:42px;border-radius:13px;background:var(--sky);display:grid;place-items:center;font-size:1.15rem;font-weight:900;color:var(--blue)}.facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.fact{background:#f5f8fb;padding:12px;border-radius:14px}.fact span{display:block;font-size:.78rem;color:var(--muted);margin-bottom:3px}.fact strong{font-size:.95rem}
+    .settings{margin-top:13px;border-top:1px solid var(--line);padding-top:15px}.settings h3{font-size:.95rem;margin:0 0 12px}.control{margin:12px 0}.control label{display:flex;justify-content:space-between;gap:12px;font-weight:700;font-size:.9rem;margin-bottom:8px}.rate-choice{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.rate-btn{border:1px solid var(--line);background:#f8fafc;border-radius:12px;padding:11px 4px;color:var(--ink);font-weight:800}.rate-btn.selected{background:var(--blue);border-color:var(--blue);color:#fff}.voice-choice{display:grid;grid-template-columns:1fr 1fr;gap:9px}.voice{border:1px solid var(--line);background:#f8fafc;border-radius:14px;padding:12px;color:var(--ink);font-weight:750}.voice.selected{background:var(--sky);border:2px solid var(--blue);padding:11px;color:var(--blue)}.voice-select{width:100%;min-height:48px;border:1px solid var(--line);border-radius:13px;background:#fff;color:var(--ink);padding:10px 12px}.ocr-box{margin:16px 0}.ocr-box label{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;font-weight:800;margin-bottom:8px}.ocr-box textarea{width:100%;min-height:148px;resize:vertical;border:1px solid var(--line);border-radius:16px;padding:13px 14px;color:var(--ink);background:#fbfdff;font:1rem/1.65 inherit}.ocr-box textarea:focus{outline:3px solid #d7edff;border-color:#6ea8d8}.scan-progress{height:8px;border-radius:99px;background:#dfe8f1;overflow:hidden;margin:13px 0 8px}.scan-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--mint),#48a8dc);transition:width .25s}.notice{font-size:.86rem;line-height:1.5;padding:11px 12px;border-radius:13px;background:#fff8e8;color:#76531d;border:1px solid #f5dca7}.diagnostics{margin-top:14px;border:1px solid var(--line);border-radius:15px;background:#f8fafc;overflow:hidden}.diagnostics summary{padding:13px 14px;font-size:.88rem;font-weight:800;cursor:pointer}.diagnostics-body{border-top:1px solid var(--line);padding:12px}.diagnostics pre{white-space:pre-wrap;word-break:break-word;margin:0;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#41546c}.diagnostics .btn{min-height:42px;padding:9px 12px;margin-top:10px;font-size:.84rem}.study-text{font-size:1.45rem;line-height:1.65;font-weight:800;margin:18px 0;color:var(--ink);min-height:92px;display:grid;place-items:center}.hidden{display:none!important}
+    .progress{height:8px;border-radius:99px;background:#dfe8f1;overflow:hidden;margin:4px 0 18px}.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--mint),#48a8dc);width:12.5%;transition:width .3s}
+    .study-card{background:white;border-radius:30px;padding:24px;box-shadow:var(--shadow);text-align:center}.visual{height:136px;background:var(--cream);border-radius:22px;display:grid;place-items:center;font-size:72px}.big-letter{font-family:Georgia,serif;font-size:6rem;line-height:1;margin:14px 0 0;color:var(--blue);font-weight:700}.word{font-size:1.35rem;font-weight:850;margin:6px 0 18px}.speak{width:74px;height:74px;border:0;border-radius:50%;background:var(--blue);color:#fff;font-size:30px;box-shadow:0 12px 25px #173e734f;margin:auto}.prompt{font-weight:800;color:var(--ink);margin:14px 0 0}.mini-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.study-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.study-actions .btn{padding:13px 6px;font-size:.9rem}
+    .quiz-card{background:white;padding:23px;border-radius:28px;box-shadow:var(--shadow);text-align:center}.quiz-card h2{margin:4px 0 8px}.listen{width:88px;height:88px;border-radius:50%;border:0;background:var(--blue);color:white;font-size:34px;margin:18px 0}.answers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.answer{border:2px solid var(--line);border-radius:20px;background:#fff;color:var(--blue);font:800 2.1rem Georgia;padding:22px}.answer.correct{border-color:var(--mint);background:#eafaf6}.answer.wrong{border-color:#e45b64;background:#fff0f1}.feedback{min-height:28px;font-weight:800;margin-top:14px;color:var(--ink)}
+    .done{text-align:center;background:white;border-radius:30px;padding:28px 22px;box-shadow:var(--shadow)}.trophy{font-size:72px}.done h1{margin-top:5px}.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:20px 0}.result{background:#f5f8fb;border-radius:16px;padding:13px 5px}.result strong{font-size:1.28rem;display:block}.result span{font-size:.78rem;color:var(--muted)}
+    .status{position:fixed;left:50%;bottom:25px;transform:translateX(-50%) translateY(120px);background:#12243a;color:white;border-radius:99px;padding:11px 18px;font-weight:700;font-size:.9rem;transition:.25s;z-index:9}.status.show{transform:translateX(-50%) translateY(0)}
+    @media(min-width:700px){body{padding:30px}.shell{min-height:auto;background:#ffffff57;border:1px solid #fff;border-radius:34px;padding:24px;box-shadow:0 30px 80px rgba(26,63,103,.12)}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header><div class="brand"><span class="mark">讀</span>AI 陪讀</div><div class="step" id="stepText">開始</div></header>
+
+  <section class="screen active" id="home">
+    <h1>拍下今天的教材</h1><p>把任何一頁普通話教材變成逐句陪讀練習。</p>
+    <label class="upload" for="photo"><div class="camera">📷</div><h2>拍照或選擇圖片</h2><p>字要清楚，盡量拍完整一頁</p><input id="photo" type="file" accept="image/*" capture="environment"></label>
+    <div class="actions"><button class="btn secondary" id="demoBtn">不用拍照，先試完整流程</button></div>
+    <div class="sample">教材圖片只在你的裝置內辨識，不會上傳到我們的伺服器。首次辨識會下載中文模型，可能需要約 20–60 秒。</div>
+  </section>
+
+  <section class="screen" id="analyse">
+    <div class="analysis"><div class="thumb" id="thumb"><span style="font-size:60px">📖</span></div><h1 id="analysisTitle" style="font-size:1.55rem">正在辨識教材</h1><p id="analysisMessage">所有文字辨識均在這部裝置內進行。</p>
+      <div class="scan-progress" id="scanProgress"><i id="scanBar"></i></div>
+      <div class="ocr-box"><label for="extractedText"><span>辨識文字（可先修改）</span><span id="charCount">0 字</span></label><textarea id="extractedText" placeholder="辨識完成後文字會顯示在這裡；你也可以直接貼上教材文字。"></textarea></div>
+      <div class="facts"><div class="fact"><span>朗讀語言</span><strong>普通話（已鎖定）</strong></div><div class="fact"><span>陪讀段落</span><strong id="segmentCount">0 句</strong></div></div>
+      <div class="settings"><h3>播放設定</h3>
+        <div class="control"><label><span>語速</span><span id="rateLabel">陪讀慢速 0.85×</span></label><div class="rate-choice" role="group" aria-label="選擇朗讀速度"><button class="rate-btn" data-rate="0.55">0.55×</button><button class="rate-btn" data-rate="0.72">0.72×</button><button class="rate-btn selected" data-rate="0.85">0.85×</button><button class="rate-btn" data-rate="1">1.0×</button></div></div>
+        <div class="control"><label><span>普通話聲音</span><span id="voiceStatus">正在尋找普通話聲音…</span></label><div class="voice-choice"><button class="voice selected" data-gender="female" disabled>👩 女聲</button><button class="voice" data-gender="male" disabled>👨 男聲</button></div><select class="voice-select" id="voiceSelect" aria-label="選擇裝置上的普通話聲音"><option>正在載入聲音…</option></select><div class="mini-row"><button class="btn secondary" id="nextVoiceBtn">不是普通話，試下一個</button><button class="btn primary" id="confirmVoiceBtn">✓ 這是普通話</button></div><p class="small-note">請先按下方「試聽普通話」。只有你親自確認為普通話後，App 才會允許播放教材；未確認時不會自動猜測或回退到粵語。</p></div>
+      </div>
+      <div class="notice hidden" id="voiceHelp">此裝置未找到符合 zh-CN、zh-Hans 或 Mandarin 的普通話聲音，系統已停止播放且不會改用粵語。iPhone 可到「設定 → 輔助使用 → 閱讀與朗讀 → 聲音 → 中文 → 國語」下載聲音，完成後重新打開此頁。</div>
+      <details class="diagnostics"><summary>測試診斷資訊</summary><div class="diagnostics-body"><pre id="diagnosticText">正在檢查裝置…</pre><button class="btn secondary" id="copyDiagnosticBtn">複製診斷資訊</button></div></details>
+      <div class="actions"><button class="btn primary" id="testVoiceBtn">🔊 試聽普通話</button><button class="btn primary" id="startBtn">開始逐句陪讀</button><button class="btn secondary" data-go="home">重新拍攝</button></div>
+    </div>
+  </section>
+
+  <section class="screen" id="study">
+    <div class="progress"><i id="studyProgress"></i></div>
+    <div class="study-card"><div class="visual" id="visual">📖</div><div class="study-text" id="studyText">準備開始</div><button class="speak" id="speakBtn" aria-label="再聽一次">🔊</button><p class="prompt">先聽，再跟讀一次</p></div>
+    <div class="study-actions"><button class="btn secondary" id="prevBtn">← 上一句</button><button class="btn secondary" id="repeatBtn">重播</button><button class="btn primary" id="nextBtn">下一句 →</button></div>
+  </section>
+
+  <section class="screen" id="quiz">
+    <div class="progress"><i id="quizProgress" style="width:33%"></i></div>
+    <div class="quiz-card"><div style="font-size:.85rem;color:var(--muted);font-weight:800">聽聲音，選答案</div><h2 id="quizTitle">第 1 題</h2><button class="listen" id="listenBtn" aria-label="播放題目">🔊</button><div class="answers" id="answers"></div><div class="feedback" id="feedback"></div></div>
+  </section>
+
+  <section class="screen" id="done">
+    <div class="done"><div class="trophy">🏅</div><h1>今天完成了</h1><p>教材已逐句跟讀，亦完成了聆聽練習。</p><div class="result-grid"><div class="result"><strong id="readCount">0</strong><span>已跟讀</span></div><div class="result"><strong id="score">0/0</strong><span>答對</span></div><div class="result"><strong id="minuteCount">1</strong><span>約分鐘</span></div></div><div class="actions"><button class="btn primary" id="againBtn">再練一次</button><button class="btn secondary" data-go="home">拍另一頁</button></div></div>
+  </section>
+</main>
+<div class="status" id="status">正在分析教材…</div>
+<script>
+  const demoText='春天来了，小草从泥土里探出头来。小鸟站在树枝上唱歌，孩子们在公园里快乐地玩耍。我们一起观察春天，读出每一句话。';
+  let segments=[],quizData=[],current=0,quizAt=0,correct=0,selectedVoice=null,voices=[],allVoices=[],gender='female',voiceVerified=false,deviceMode=false,deviceTested=false,ocrWorker=null,ocrScriptPromise=null,toastTimer,selectedRate=.85,lastDiagnostic='尚未播放';
+  const $=s=>document.querySelector(s), screens=[...document.querySelectorAll('.screen')];
+  const DEVICE_MODE='__device_zh_cn__';
+  const blockedVoice=/\byue\b|zh[-_]hk|canton|hong\s*kong|廣東話|广东话|粵|粤/i;
+  const femaleVoice=/ting.?ting|meijia|mei.?jia|sin.?ji|xiaoxiao|xiaoyi|xiaohan|xiaomeng|huihui|yaoyao|婷婷|美佳|曉曉|晓晓|小藝|小艺|瑤瑤|瑶瑶|惠惠|female|woman|女聲|女声/i;
+  const maleVoice=/kangkang|yunyang|yunxi|yunfeng|limu|li.?mu|eddy|aaron|康康|雲揚|云扬|雲希|云希|李木|male|man|男聲|男声/i;
+  function show(id,step){speechSynthesis.cancel();screens.forEach(s=>s.classList.toggle('active',s.id===id));$('#stepText').textContent=step;scrollTo({top:0,behavior:'smooth'});}
+  function toast(t){clearTimeout(toastTimer);$('#status').textContent=t;$('#status').classList.add('show');toastTimer=setTimeout(()=>$('#status').classList.remove('show'),2200)}
+  function isMandarin(v){const info=`${v.lang||''} ${v.name||''} ${v.voiceURI||''}`,lang=(v.lang||'').toLowerCase().replaceAll('_','-');if(blockedVoice.test(info))return false;return /^zh-cn(?:-|$)/.test(lang)||/^zh-hans(?:-|$)/.test(lang)||/^cmn(?:-hans)?(?:-cn)?(?:-|$)/.test(lang)||/mandarin|普通話|普通话|國語|国语/i.test(info);}
+  function voiceGender(v){const text=`${v.name} ${v.voiceURI}`;if(femaleVoice.test(text))return 'female';if(maleVoice.test(text))return 'male';return 'unknown';}
+  function refreshVoices(){
+    allVoices=speechSynthesis.getVoices();voices=allVoices.filter(isMandarin);deviceMode=allVoices.length===0;
+    const saved=localStorage.getItem('mandarinVoiceURI');
+    selectedVoice=voices.find(v=>v.voiceURI===saved)||voices.find(v=>voiceGender(v)===gender)||voices[0]||null;
+    const options=voices.length?voices.map(v=>{const o=document.createElement('option');o.value=v.voiceURI;o.textContent=`${voiceGender(v)==='female'?'女聲 · ':voiceGender(v)==='male'?'男聲 · ':''}${v.name}`;return o;}):[Object.assign(document.createElement('option'),{textContent:deviceMode?'裝置普通話（zh-CN，需試聽確認）':'找不到普通話聲音'})];
+    $('#voiceSelect').replaceChildren(...options);if(selectedVoice)$('#voiceSelect').value=selectedVoice.voiceURI;
+    const verified=localStorage.getItem('mandarinVoiceVerifiedV2');voiceVerified=(!!selectedVoice&&verified===selectedVoice.voiceURI)||(deviceMode&&verified===DEVICE_MODE);
+    document.querySelectorAll('.voice').forEach(b=>{const found=voices.some(v=>voiceGender(v)===b.dataset.gender);b.disabled=!found;b.classList.toggle('selected',selectedVoice&&voiceGender(selectedVoice)===b.dataset.gender)});
+    $('#voiceStatus').textContent=selectedVoice?(voiceVerified?'已確認：':'待確認：')+selectedVoice.name:deviceMode?(voiceVerified?'已確認：裝置普通話':'待試聽：裝置普通話'):'未安裝普通話聲音';
+    if(deviceMode)$('#voiceHelp').textContent='這個瀏覽器沒有列出系統聲音。你仍可按「試聽普通話」，網站只會要求 zh-CN；必須由你聽過並確認是普通話後才可播放教材。若試聽是粵語，請不要確認。';else $('#voiceHelp').textContent='此裝置未找到符合 zh-CN、zh-Hans 或 Mandarin 的普通話聲音，系統已停止播放且不會改用粵語。iPhone 可到「設定 → 輔助使用 → 閱讀與朗讀 → 聲音 → 中文 → 國語」下載聲音，完成後重新打開此頁。';
+    $('#voiceHelp').classList.toggle('hidden',!!selectedVoice);$('#testVoiceBtn').disabled=!(selectedVoice||deviceMode);$('#confirmVoiceBtn').disabled=voiceVerified||!(selectedVoice||(deviceMode&&deviceTested));$('#nextVoiceBtn').disabled=voices.length<2;$('#nextVoiceBtn').textContent=voices.length<2?'只有一個候選聲音':'不是普通話，試下一個';updateTextStats();updateDiagnostics();
+  }
+  speechSynthesis.onvoiceschanged=refreshVoices;refreshVoices();setTimeout(refreshVoices,300);setTimeout(refreshVoices,1200);
+  function speak(text,onend){
+    let live=null;if(deviceMode){live=null}else if(selectedVoice&&isMandarin(selectedVoice)){live=speechSynthesis.getVoices().find(v=>v.voiceURI===selectedVoice.voiceURI&&isMandarin(v));if(!live){selectedVoice=null;refreshVoices();lastDiagnostic='所選普通話聲音已從系統消失；已停止，沒有回退';updateDiagnostics();toast('普通話聲音已失效，已停止播放');return false;}}else{refreshVoices();toast('找不到普通話聲音，已停止播放');$('#voiceHelp').classList.remove('hidden');return false;}
+    speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);if(live)u.voice=live;u.lang=live?live.lang:'zh-CN';u.rate=selectedRate;u.pitch=1;u.onstart=()=>{lastDiagnostic=deviceMode?`播放中：裝置 zh-CN 模式 / ${selectedRate}×`:`播放中：${live.name} / ${live.lang} / ${selectedRate}×`;updateDiagnostics()};u.onend=()=>{lastDiagnostic='上次普通話播放完成';updateDiagnostics();onend?.()};u.onerror=e=>{if(e.error!=='canceled'&&e.error!=='interrupted'){if(deviceMode){deviceTested=false;refreshVoices()}lastDiagnostic=`播放錯誤：${e.error}（沒有回退粵語）`;updateDiagnostics();toast('普通話播放失敗，已停止且不會改用粵語')}};speechSynthesis.speak(u);return true;
+  }
+  function splitText(text){
+    const clean=text.normalize('NFKC').replace(/\r/g,'').replace(/[ \t]+/g,' ').replace(/([\p{Script=Han}])\s+(?=[\p{Script=Han}])/gu,'$1').replace(/\n{2,}/g,'\n').trim();if(!clean)return [];
+    const raw=clean.match(/[^。！？!?；;\n]+[。！？!?；;]?/g)||[],out=[];
+    raw.forEach(part=>{let s=part.trim();if(!/\p{Script=Han}/u.test(s))return;while(s.length>55){let cut=Math.max(s.lastIndexOf('，',50),s.lastIndexOf(',',50),s.lastIndexOf('、',50),s.lastIndexOf('：',50));if(cut<12)cut=50;const piece=s.slice(0,cut+1).trim();if(/\p{Script=Han}/u.test(piece))out.push(piece);s=s.slice(cut+1).trim()}if(s&&/\p{Script=Han}/u.test(s))out.push(s)});return out.slice(0,80);
+  }
+  function updateTextStats(){segments=splitText($('#extractedText').value);$('#charCount').textContent=$('#extractedText').value.replace(/\s/g,'').length+' 字';$('#segmentCount').textContent=segments.length+' 句';$('#startBtn').disabled=!segments.length||!(selectedVoice||deviceMode)||!voiceVerified;updateDiagnostics();}
+  $('#extractedText').addEventListener('input',updateTextStats);
+  function loadOcrEngine(){
+    if(window.Tesseract)return Promise.resolve();if(ocrScriptPromise)return ocrScriptPromise;
+    ocrScriptPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('OCR_ENGINE_UNAVAILABLE'));document.head.appendChild(s)});return ocrScriptPromise;
+  }
+  async function getWorker(){
+    if(ocrWorker)return ocrWorker;await loadOcrEngine();if(!window.Tesseract)throw new Error('OCR_ENGINE_UNAVAILABLE');
+    ocrWorker=await Tesseract.createWorker('chi_sim+chi_tra',1,{logger:m=>{if(m.progress!=null){const pct=Math.max(4,Math.round(m.progress*100));$('#scanBar').style.width=pct+'%';$('#analysisMessage').textContent=m.status==='recognizing text'?`正在辨識文字 ${pct}%`:'首次載入中文辨識模型…'}}});await ocrWorker.setParameters({preserve_interword_spaces:'1'});return ocrWorker;
+  }
+  async function analyse(file){
+    const img=document.createElement('img');img.alt='剛拍攝的教材';img.src=URL.createObjectURL(file);$('#thumb').replaceChildren(img);show('analyse','辨識');$('#analysisTitle').textContent='正在辨識教材';$('#analysisMessage').textContent='首次使用需下載中文模型，請保持頁面開啟。';$('#scanProgress').classList.remove('hidden');$('#scanBar').style.width='3%';$('#extractedText').value='';updateTextStats();
+    try{const worker=await getWorker();const result=await worker.recognize(file);const text=(result.data.text||'').trim();$('#extractedText').value=text;lastDiagnostic=`本機 OCR 完成；可信度 ${Math.round(result.data.confidence||0)}%`;$('#analysisTitle').textContent=text?'請先檢查辨識文字':'未能辨識文字';$('#analysisMessage').textContent=text?'已自動按中文標點及換行分句；如有錯字可直接修改。':'請換一張更清楚、保持文字直向且光線均勻的照片，或直接貼上文字。';$('#scanBar').style.width='100%';setTimeout(()=>$('#scanProgress').classList.add('hidden'),500);updateTextStats();}
+    catch(err){console.error(err);lastDiagnostic=`本機 OCR 錯誤：${err.message||'未知錯誤'}`;updateDiagnostics();$('#analysisTitle').textContent='文字辨識未能啟動';$('#analysisMessage').textContent='請檢查網絡後再試，或直接在下方貼上教材文字。';$('#scanProgress').classList.add('hidden');toast('辨識未完成，但仍可貼上文字使用');}
+  }
+  $('#photo').addEventListener('change',e=>{if(e.target.files[0])analyse(e.target.files[0])});
+  $('#demoBtn').onclick=()=>{show('analyse','設定');$('#thumb').innerHTML='<span style="font-size:60px">📖</span>';$('#analysisTitle').textContent='示範教材已準備好';$('#analysisMessage').textContent='這是完整的逐句陪讀及聆聽練習。';$('#scanProgress').classList.add('hidden');$('#extractedText').value=demoText;updateTextStats()};
+  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>show(b.dataset.go,'開始'));
+  document.querySelectorAll('.rate-btn').forEach(b=>b.onclick=()=>{selectedRate=Number(b.dataset.rate);localStorage.setItem('mandarinRate',String(selectedRate));document.querySelectorAll('.rate-btn').forEach(x=>x.classList.toggle('selected',x===b));$('#rateLabel').textContent=(selectedRate<=.55?'最慢':selectedRate<=.72?'較慢':selectedRate<1?'陪讀慢速':'自然速度')+' '+(selectedRate===1?'1.0':selectedRate.toFixed(2))+'×';updateDiagnostics()});
+  function chooseVoice(v,preview=true){if(!v)return;selectedVoice=v;gender=voiceGender(v);localStorage.setItem('mandarinVoiceURI',v.voiceURI);localStorage.removeItem('mandarinVoiceVerifiedV2');voiceVerified=false;refreshVoices();if(preview)speak('你好，我會用普通話陪你一起閱讀。')}
+  $('#voiceSelect').onchange=e=>chooseVoice(voices.find(v=>v.voiceURI===e.target.value));
+  document.querySelectorAll('.voice').forEach(b=>b.onclick=()=>chooseVoice(voices.find(v=>voiceGender(v)===b.dataset.gender)));
+  $('#nextVoiceBtn').onclick=()=>{if(voices.length<2)return;const i=Math.max(0,voices.findIndex(v=>v.voiceURI===selectedVoice?.voiceURI));chooseVoice(voices[(i+1)%voices.length])};
+  $('#confirmVoiceBtn').onclick=()=>{const key=selectedVoice?.voiceURI||(deviceMode&&deviceTested?DEVICE_MODE:null);if(!key)return;localStorage.setItem('mandarinVoiceVerifiedV2',key);voiceVerified=true;refreshVoices();toast('已確認普通話聲音，可以開始陪讀')};
+  $('#testVoiceBtn').onclick=()=>{if(speak('你好，我會用普通話陪你一起閱讀。')&&deviceMode){deviceTested=true;refreshVoices();toast('請確認剛才聽到的是普通話')}};
+  function renderLesson(){const text=segments[current];$('#studyText').textContent=text;$('#studyProgress').style.width=((current+1)/segments.length*100)+'%';$('#stepText').textContent=`跟讀 ${current+1}/${segments.length}`;$('#prevBtn').disabled=current===0;$('#nextBtn').textContent=current===segments.length-1?'完成跟讀':'下一句 →';setTimeout(()=>speak(text),250)}
+  $('#startBtn').onclick=()=>{updateTextStats();if(!segments.length)return toast('請先加入教材文字');if(!(selectedVoice||deviceMode))return toast('請先安裝或選擇普通話聲音');if(!voiceVerified)return toast('請先試聽，並確認這個聲音是普通話');current=0;show('study',`跟讀 1/${segments.length}`);renderLesson()};
+  $('#speakBtn').onclick=$('#repeatBtn').onclick=()=>speak(segments[current]);
+  $('#prevBtn').onclick=()=>{if(current>0){current--;renderLesson()}};
+  $('#nextBtn').onclick=()=>{current++;if(current<segments.length)renderLesson();else beginQuiz()};
+  function beginQuiz(){
+    const pool=segments.filter(s=>s.length>=3);quizData=[];for(let i=0;i<Math.min(3,pool.length);i++){const right=pool[i],wrong=pool[(i+1)%pool.length];if(right!==wrong)quizData.push({right,opts:i%2?[wrong,right]:[right,wrong]})}
+    if(!quizData.length)return finish();quizAt=0;correct=0;show('quiz','聆聽練習');renderQuiz();
+  }
+  function renderQuiz(){const q=quizData[quizAt];$('#quizTitle').textContent=`第 ${quizAt+1} 題`;$('#quizProgress').style.width=((quizAt+1)/quizData.length*100)+'%';$('#feedback').textContent='';$('#answers').innerHTML='';q.opts.forEach(o=>{const b=document.createElement('button');b.className='answer';b.dataset.answer=o;b.textContent=o;b.style.font='800 1rem/1.5 inherit';b.style.padding='16px 10px';b.onclick=()=>check(b,q.right);$('#answers').appendChild(b)});setTimeout(()=>speak(q.right),250)}
+  $('#listenBtn').onclick=()=>speak(quizData[quizAt].right);
+  function check(btn,right){document.querySelectorAll('.answer').forEach(b=>b.disabled=true);if(btn.dataset.answer===right){btn.classList.add('correct');$('#feedback').textContent='答對了';correct++}else{btn.classList.add('wrong');[...document.querySelectorAll('.answer')].find(b=>b.dataset.answer===right)?.classList.add('correct');$('#feedback').textContent='再聽一次，綠色的是正確句子';speak(right)}setTimeout(()=>{quizAt++;if(quizAt<quizData.length)renderQuiz();else finish()},1250)}
+  function finish(){$('#readCount').textContent=segments.length;$('#score').textContent=quizData.length?`${correct}/${quizData.length}`:'—';$('#minuteCount').textContent=Math.max(1,Math.ceil(segments.join('').length/120));show('done','完成')}
+  $('#againBtn').onclick=()=>{current=0;show('study',`跟讀 1/${segments.length}`);renderLesson()};
+  function updateDiagnostics(){const chosen=selectedVoice?`${selectedVoice.name} | ${selectedVoice.lang} | ${selectedVoice.localService?'本機':'系統提供'}`:deviceMode?'裝置 zh-CN 模式（瀏覽器未提供聲音清單）':'無';const rejected=allVoices.filter(v=>blockedVoice.test(`${v.lang} ${v.name} ${v.voiceURI}`)).length;const lines=['版本：普通話本機版 9','成本：零按次 API（OCR 與朗讀均在裝置執行）',`語音功能：${'speechSynthesis'in window?'支援':'不支援'}`,`系統聲音：${allVoices.length}；合格普通話：${voices.length}；排除粵語：${rejected}`,`所選聲音：${chosen}`,`人工確認：${voiceVerified?'已確認':'尚未確認'}`,`語速：${selectedRate}×`,`分句數：${segments.length}`,`狀態：${lastDiagnostic}`,`瀏覽器：${navigator.userAgent}`];$('#diagnosticText').textContent=lines.join('\n');}
+  $('#copyDiagnosticBtn').onclick=async()=>{try{await navigator.clipboard.writeText($('#diagnosticText').textContent);toast('已複製診斷資訊')}catch{toast('無法自動複製，請長按文字選取')}};
+  {const savedRate=Number(localStorage.getItem('mandarinRate'));if([.55,.72,.85,1].includes(savedRate))selectedRate=savedRate;document.querySelector(`.rate-btn[data-rate="${selectedRate}"]`)?.click();updateDiagnostics()}
+</script>
+</body>
+</html>
