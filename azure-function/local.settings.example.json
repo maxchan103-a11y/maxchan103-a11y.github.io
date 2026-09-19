@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AZURE_SPEECH_KEY": "paste-the-key-in-azure-settings-not-in-github",
+    "AZURE_SPEECH_REGION": "eastasia",
+    "ALLOWED_ORIGIN": "https://maxchan103-a11y.github.io"
+  }
+}
