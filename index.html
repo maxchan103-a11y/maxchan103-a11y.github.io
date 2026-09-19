@@ -35,7 +35,7 @@
     <h1>拍下今天的教材</h1><p>把任何一頁普通話教材變成逐句陪讀練習。</p>
     <label class="upload" for="photo"><div class="camera">📷</div><h2>拍照或選擇圖片</h2><p>字要清楚，盡量拍完整一頁</p><input id="photo" type="file" accept="image/*" capture="environment"></label>
     <div class="actions"><button class="btn secondary" id="demoBtn">不用拍照，先試完整流程</button></div>
-    <div class="sample">教材圖片只在你的裝置內辨識，不會上傳到我們的伺服器。首次辨識會下載中文模型，可能需要約 20–60 秒。</div>
+    <div class="sample">教材圖片只在你的裝置內辨識，不會上傳。啟用自然普通話後，只有需要朗讀的文字會傳送到語音服務產生音訊；已產生的句子會在這部裝置快取，重播不會再次請求。</div>
   </section>
 
   <section class="screen" id="analyse">
@@ -69,19 +69,32 @@
   </section>
 </main>
 <div class="status" id="status">正在分析教材…</div>
+<script src="./config.js?v=10"></script>
 <script>
   const demoText='春天来了，小草从泥土里探出头来。小鸟站在树枝上唱歌，孩子们在公园里快乐地玩耍。我们一起观察春天，读出每一句话。';
-  let segments=[],quizData=[],current=0,quizAt=0,correct=0,selectedVoice=null,voices=[],allVoices=[],gender='female',voiceVerified=false,deviceMode=false,deviceTested=false,ocrWorker=null,ocrScriptPromise=null,toastTimer,selectedRate=.85,lastDiagnostic='尚未播放';
+  const CLOUD_TTS_ENDPOINT=window.READING_COACH_CONFIG?.ttsEndpoint||'';
+  const CLOUD_TTS_ENABLED=/^https:\/\//.test(CLOUD_TTS_ENDPOINT);
+  const CLOUD_VOICES={female:'zh-CN-XiaoxiaoNeural',male:'zh-CN-YunxiNeural'};
+  let segments=[],quizData=[],current=0,quizAt=0,correct=0,selectedVoice=null,voices=[],allVoices=[],gender=localStorage.getItem('mandarinGender')||'female',voiceVerified=false,deviceMode=false,deviceTested=false,ocrWorker=null,ocrScriptPromise=null,toastTimer,selectedRate=.85,lastDiagnostic='尚未播放',activeAudio=null,activeAudioUrl='';
   const $=s=>document.querySelector(s), screens=[...document.querySelectorAll('.screen')];
   const DEVICE_MODE='__device_zh_cn__';
   const blockedVoice=/\byue\b|zh[-_]hk|canton|hong\s*kong|廣東話|广东话|粵|粤/i;
   const femaleVoice=/ting.?ting|meijia|mei.?jia|sin.?ji|xiaoxiao|xiaoyi|xiaohan|xiaomeng|huihui|yaoyao|婷婷|美佳|曉曉|晓晓|小藝|小艺|瑤瑤|瑶瑶|惠惠|female|woman|女聲|女声/i;
   const maleVoice=/kangkang|yunyang|yunxi|yunfeng|limu|li.?mu|eddy|aaron|康康|雲揚|云扬|雲希|云希|李木|male|man|男聲|男声/i;
-  function show(id,step){speechSynthesis.cancel();screens.forEach(s=>s.classList.toggle('active',s.id===id));$('#stepText').textContent=step;scrollTo({top:0,behavior:'smooth'});}
+  function stopAudio(){speechSynthesis.cancel();if(activeAudio){activeAudio.pause();activeAudio.src='';activeAudio=null}if(activeAudioUrl){URL.revokeObjectURL(activeAudioUrl);activeAudioUrl=''}}
+  function show(id,step){stopAudio();screens.forEach(s=>s.classList.toggle('active',s.id===id));$('#stepText').textContent=step;scrollTo({top:0,behavior:'smooth'});}
   function toast(t){clearTimeout(toastTimer);$('#status').textContent=t;$('#status').classList.add('show');toastTimer=setTimeout(()=>$('#status').classList.remove('show'),2200)}
   function isMandarin(v){const info=`${v.lang||''} ${v.name||''} ${v.voiceURI||''}`,lang=(v.lang||'').toLowerCase().replaceAll('_','-');if(blockedVoice.test(info))return false;return /^zh-cn(?:-|$)/.test(lang)||/^zh-hans(?:-|$)/.test(lang)||/^cmn(?:-hans)?(?:-cn)?(?:-|$)/.test(lang)||/mandarin|普通話|普通话|國語|国语/i.test(info);}
   function voiceGender(v){const text=`${v.name} ${v.voiceURI}`;if(femaleVoice.test(text))return 'female';if(maleVoice.test(text))return 'male';return 'unknown';}
   function refreshVoices(){
+    if(CLOUD_TTS_ENABLED){
+      selectedVoice={name:CLOUD_VOICES[gender],lang:'zh-CN',voiceURI:CLOUD_VOICES[gender],localService:false};voiceVerified=true;deviceMode=false;allVoices=[];voices=[];
+      document.querySelectorAll('.voice').forEach(b=>{b.disabled=false;b.classList.toggle('selected',b.dataset.gender===gender)});
+      $('#voiceStatus').textContent=gender==='female'?'自然女聲 · 普通話':'自然男聲 · 普通話';
+      $('#voiceSelect').classList.add('hidden');$('#nextVoiceBtn').classList.add('hidden');$('#confirmVoiceBtn').classList.add('hidden');
+      $('#voiceHelp').classList.remove('hidden');$('#voiceHelp').textContent='固定使用自然普通話聲音，不讀取手機語音，也不會回退到粵語。每句首次產生後會在這部裝置快取，重播不會再次使用額度。';
+      $('#testVoiceBtn').disabled=false;updateTextStats();updateDiagnostics();return;
+    }
     allVoices=speechSynthesis.getVoices();voices=allVoices.filter(isMandarin);deviceMode=allVoices.length===0;
     const saved=localStorage.getItem('mandarinVoiceURI');
     selectedVoice=voices.find(v=>v.voiceURI===saved)||voices.find(v=>voiceGender(v)===gender)||voices[0]||null;
@@ -94,7 +107,18 @@
     $('#voiceHelp').classList.toggle('hidden',!!selectedVoice);$('#testVoiceBtn').disabled=!(selectedVoice||deviceMode);$('#confirmVoiceBtn').disabled=voiceVerified||!(selectedVoice||(deviceMode&&deviceTested));$('#nextVoiceBtn').disabled=voices.length<2;$('#nextVoiceBtn').textContent=voices.length<2?'只有一個候選聲音':'不是普通話，試下一個';updateTextStats();updateDiagnostics();
   }
   speechSynthesis.onvoiceschanged=refreshVoices;refreshVoices();setTimeout(refreshVoices,300);setTimeout(refreshVoices,1200);
+  async function cacheKey(text){const raw=new TextEncoder().encode(`${CLOUD_VOICES[gender]}|${selectedRate}|${text}`),hash=await crypto.subtle.digest('SHA-256',raw);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+  async function getCachedAudio(key){if(!('caches'in window))return null;const cache=await caches.open('mandarin-natural-voice-v1'),hit=await cache.match(new Request(`${location.origin}/__tts_cache__/${key}`));return hit?hit.blob():null}
+  async function putCachedAudio(key,blob){if(!('caches'in window))return;const cache=await caches.open('mandarin-natural-voice-v1');await cache.put(new Request(`${location.origin}/__tts_cache__/${key}`),new Response(blob,{headers:{'Content-Type':'audio/mpeg'}}))}
+  async function speakCloud(text,onend){
+    try{stopAudio();const key=await cacheKey(text);let blob=await getCachedAudio(key);let cached=!!blob;
+      if(!blob){lastDiagnostic='正在產生自然普通話…';updateDiagnostics();toast('正在準備自然普通話…');const res=await fetch(CLOUD_TTS_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,voice:CLOUD_VOICES[gender],rate:selectedRate})});
+        if(res.status===402||res.status===429)throw new Error('MONTHLY_LIMIT');if(!res.ok)throw new Error(`TTS_${res.status}`);blob=await res.blob();await putCachedAudio(key,blob)}
+      activeAudioUrl=URL.createObjectURL(blob);activeAudio=new Audio(activeAudioUrl);activeAudio.onplay=()=>{lastDiagnostic=`播放中：${gender==='female'?'自然女聲':'自然男聲'} / ${selectedRate}×${cached?' / 裝置快取':''}`;updateDiagnostics()};activeAudio.onended=()=>{lastDiagnostic='自然普通話播放完成';updateDiagnostics();onend?.()};activeAudio.onerror=()=>{lastDiagnostic='音訊播放失敗；沒有回退粵語';updateDiagnostics();toast('音訊播放失敗，請再按一次')};await activeAudio.play();
+    }catch(err){console.error(err);lastDiagnostic=err.message==='MONTHLY_LIMIT'?'本月免費語音額度已用完；已停止且不收費':`自然普通話服務暫時未能使用：${err.message}`;updateDiagnostics();toast(err.message==='MONTHLY_LIMIT'?'本月免費額度已用完':'自然普通話暫時未能使用')}
+  }
   function speak(text,onend){
+    if(CLOUD_TTS_ENABLED){void speakCloud(text,onend);return true}
     let live=null;if(deviceMode){live=null}else if(selectedVoice&&isMandarin(selectedVoice)){live=speechSynthesis.getVoices().find(v=>v.voiceURI===selectedVoice.voiceURI&&isMandarin(v));if(!live){selectedVoice=null;refreshVoices();lastDiagnostic='所選普通話聲音已從系統消失；已停止，沒有回退';updateDiagnostics();toast('普通話聲音已失效，已停止播放');return false;}}else{refreshVoices();toast('找不到普通話聲音，已停止播放');$('#voiceHelp').classList.remove('hidden');return false;}
     speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);if(live)u.voice=live;u.lang=live?live.lang:'zh-CN';u.rate=selectedRate;u.pitch=1;u.onstart=()=>{lastDiagnostic=deviceMode?`播放中：裝置 zh-CN 模式 / ${selectedRate}×`:`播放中：${live.name} / ${live.lang} / ${selectedRate}×`;updateDiagnostics()};u.onend=()=>{lastDiagnostic='上次普通話播放完成';updateDiagnostics();onend?.()};u.onerror=e=>{if(e.error!=='canceled'&&e.error!=='interrupted'){if(deviceMode){deviceTested=false;refreshVoices()}lastDiagnostic=`播放錯誤：${e.error}（沒有回退粵語）`;updateDiagnostics();toast('普通話播放失敗，已停止且不會改用粵語')}};speechSynthesis.speak(u);return true;
   }
@@ -103,7 +127,7 @@
     const raw=clean.match(/[^。！？!?；;\n]+[。！？!?；;]?/g)||[],out=[];
     raw.forEach(part=>{let s=part.trim();if(!/\p{Script=Han}/u.test(s))return;while(s.length>55){let cut=Math.max(s.lastIndexOf('，',50),s.lastIndexOf(',',50),s.lastIndexOf('、',50),s.lastIndexOf('：',50));if(cut<12)cut=50;const piece=s.slice(0,cut+1).trim();if(/\p{Script=Han}/u.test(piece))out.push(piece);s=s.slice(cut+1).trim()}if(s&&/\p{Script=Han}/u.test(s))out.push(s)});return out.slice(0,80);
   }
-  function updateTextStats(){segments=splitText($('#extractedText').value);$('#charCount').textContent=$('#extractedText').value.replace(/\s/g,'').length+' 字';$('#segmentCount').textContent=segments.length+' 句';$('#startBtn').disabled=!segments.length||!(selectedVoice||deviceMode)||!voiceVerified;updateDiagnostics();}
+  function updateTextStats(){segments=splitText($('#extractedText').value);$('#charCount').textContent=$('#extractedText').value.replace(/\s/g,'').length+' 字';$('#segmentCount').textContent=segments.length+' 句';$('#startBtn').disabled=!segments.length||(!CLOUD_TTS_ENABLED&&(!(selectedVoice||deviceMode)||!voiceVerified));updateDiagnostics();}
   $('#extractedText').addEventListener('input',updateTextStats);
   function loadOcrEngine(){
     if(window.Tesseract)return Promise.resolve();if(ocrScriptPromise)return ocrScriptPromise;
@@ -124,12 +148,12 @@
   document.querySelectorAll('.rate-btn').forEach(b=>b.onclick=()=>{selectedRate=Number(b.dataset.rate);localStorage.setItem('mandarinRate',String(selectedRate));document.querySelectorAll('.rate-btn').forEach(x=>x.classList.toggle('selected',x===b));$('#rateLabel').textContent=(selectedRate<=.55?'最慢':selectedRate<=.72?'較慢':selectedRate<1?'陪讀慢速':'自然速度')+' '+(selectedRate===1?'1.0':selectedRate.toFixed(2))+'×';updateDiagnostics()});
   function chooseVoice(v,preview=true){if(!v)return;selectedVoice=v;gender=voiceGender(v);localStorage.setItem('mandarinVoiceURI',v.voiceURI);localStorage.removeItem('mandarinVoiceVerifiedV2');voiceVerified=false;refreshVoices();if(preview)speak('你好，我會用普通話陪你一起閱讀。')}
   $('#voiceSelect').onchange=e=>chooseVoice(voices.find(v=>v.voiceURI===e.target.value));
-  document.querySelectorAll('.voice').forEach(b=>b.onclick=()=>chooseVoice(voices.find(v=>voiceGender(v)===b.dataset.gender)));
+  document.querySelectorAll('.voice').forEach(b=>b.onclick=()=>{if(CLOUD_TTS_ENABLED){gender=b.dataset.gender;localStorage.setItem('mandarinGender',gender);refreshVoices();speak('你好，我會用普通話陪你一起閱讀。')}else chooseVoice(voices.find(v=>voiceGender(v)===b.dataset.gender))});
   $('#nextVoiceBtn').onclick=()=>{if(voices.length<2)return;const i=Math.max(0,voices.findIndex(v=>v.voiceURI===selectedVoice?.voiceURI));chooseVoice(voices[(i+1)%voices.length])};
   $('#confirmVoiceBtn').onclick=()=>{const key=selectedVoice?.voiceURI||(deviceMode&&deviceTested?DEVICE_MODE:null);if(!key)return;localStorage.setItem('mandarinVoiceVerifiedV2',key);voiceVerified=true;refreshVoices();toast('已確認普通話聲音，可以開始陪讀')};
-  $('#testVoiceBtn').onclick=()=>{if(speak('你好，我會用普通話陪你一起閱讀。')&&deviceMode){deviceTested=true;refreshVoices();toast('請確認剛才聽到的是普通話')}};
+  $('#testVoiceBtn').onclick=()=>{if(speak('你好，我會用普通話陪你一起閱讀。')&&deviceMode&&!CLOUD_TTS_ENABLED){deviceTested=true;refreshVoices();toast('請確認剛才聽到的是普通話')}};
   function renderLesson(){const text=segments[current];$('#studyText').textContent=text;$('#studyProgress').style.width=((current+1)/segments.length*100)+'%';$('#stepText').textContent=`跟讀 ${current+1}/${segments.length}`;$('#prevBtn').disabled=current===0;$('#nextBtn').textContent=current===segments.length-1?'完成跟讀':'下一句 →';setTimeout(()=>speak(text),250)}
-  $('#startBtn').onclick=()=>{updateTextStats();if(!segments.length)return toast('請先加入教材文字');if(!(selectedVoice||deviceMode))return toast('請先安裝或選擇普通話聲音');if(!voiceVerified)return toast('請先試聽，並確認這個聲音是普通話');current=0;show('study',`跟讀 1/${segments.length}`);renderLesson()};
+  $('#startBtn').onclick=()=>{updateTextStats();if(!segments.length)return toast('請先加入教材文字');if(!CLOUD_TTS_ENABLED&&!(selectedVoice||deviceMode))return toast('請先安裝或選擇普通話聲音');if(!CLOUD_TTS_ENABLED&&!voiceVerified)return toast('請先試聽，並確認這個聲音是普通話');current=0;show('study',`跟讀 1/${segments.length}`);renderLesson()};
   $('#speakBtn').onclick=$('#repeatBtn').onclick=()=>speak(segments[current]);
   $('#prevBtn').onclick=()=>{if(current>0){current--;renderLesson()}};
   $('#nextBtn').onclick=()=>{current++;if(current<segments.length)renderLesson();else beginQuiz()};
@@ -142,7 +166,7 @@
   function check(btn,right){document.querySelectorAll('.answer').forEach(b=>b.disabled=true);if(btn.dataset.answer===right){btn.classList.add('correct');$('#feedback').textContent='答對了';correct++}else{btn.classList.add('wrong');[...document.querySelectorAll('.answer')].find(b=>b.dataset.answer===right)?.classList.add('correct');$('#feedback').textContent='再聽一次，綠色的是正確句子';speak(right)}setTimeout(()=>{quizAt++;if(quizAt<quizData.length)renderQuiz();else finish()},1250)}
   function finish(){$('#readCount').textContent=segments.length;$('#score').textContent=quizData.length?`${correct}/${quizData.length}`:'—';$('#minuteCount').textContent=Math.max(1,Math.ceil(segments.join('').length/120));show('done','完成')}
   $('#againBtn').onclick=()=>{current=0;show('study',`跟讀 1/${segments.length}`);renderLesson()};
-  function updateDiagnostics(){const chosen=selectedVoice?`${selectedVoice.name} | ${selectedVoice.lang} | ${selectedVoice.localService?'本機':'系統提供'}`:deviceMode?'裝置 zh-CN 模式（瀏覽器未提供聲音清單）':'無';const rejected=allVoices.filter(v=>blockedVoice.test(`${v.lang} ${v.name} ${v.voiceURI}`)).length;const lines=['版本：普通話本機版 9','成本：零按次 API（OCR 與朗讀均在裝置執行）',`語音功能：${'speechSynthesis'in window?'支援':'不支援'}`,`系統聲音：${allVoices.length}；合格普通話：${voices.length}；排除粵語：${rejected}`,`所選聲音：${chosen}`,`人工確認：${voiceVerified?'已確認':'尚未確認'}`,`語速：${selectedRate}×`,`分句數：${segments.length}`,`狀態：${lastDiagnostic}`,`瀏覽器：${navigator.userAgent}`];$('#diagnosticText').textContent=lines.join('\n');}
+  function updateDiagnostics(){const chosen=CLOUD_TTS_ENABLED?`${CLOUD_VOICES[gender]} | zh-CN | 自然普通話`:selectedVoice?`${selectedVoice.name} | ${selectedVoice.lang} | ${selectedVoice.localService?'本機':'系統提供'}`:deviceMode?'裝置 zh-CN 模式（瀏覽器未提供聲音清單）':'無';const rejected=allVoices.filter(v=>blockedVoice.test(`${v.lang} ${v.name} ${v.voiceURI}`)).length;const lines=['版本：混合普通話版 10',`成本模式：${CLOUD_TTS_ENABLED?'Azure F0 免費額度；用完即停止':'尚未連接自然普通話；維持裝置安全模式'}`,`音訊快取：${'caches'in window?'支援':'不支援'}`,`語音來源：${CLOUD_TTS_ENABLED?'固定 zh-CN 雲端普通話':'裝置語音（嚴格排除粵語）'}`,`系統聲音：${allVoices.length}；合格普通話：${voices.length}；排除粵語：${rejected}`,`所選聲音：${chosen}`,`語速：${selectedRate}×`,`分句數：${segments.length}`,`狀態：${lastDiagnostic}`,`瀏覽器：${navigator.userAgent}`];$('#diagnosticText').textContent=lines.join('\n');}
   $('#copyDiagnosticBtn').onclick=async()=>{try{await navigator.clipboard.writeText($('#diagnosticText').textContent);toast('已複製診斷資訊')}catch{toast('無法自動複製，請長按文字選取')}};
   {const savedRate=Number(localStorage.getItem('mandarinRate'));if([.55,.72,.85,1].includes(savedRate))selectedRate=savedRate;document.querySelector(`.rate-btn[data-rate="${selectedRate}"]`)?.click();updateDiagnostics()}
 </script>
