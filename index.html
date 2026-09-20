@@ -104,7 +104,7 @@
   const blockedVoice=/\byue\b|zh[-_]hk|canton|hong\s*kong|廣東話|广东话|粵|粤/i;
   const femaleVoice=/ting.?ting|meijia|mei.?jia|sin.?ji|xiaoxiao|xiaoyi|xiaohan|xiaomeng|huihui|yaoyao|婷婷|美佳|曉曉|晓晓|小藝|小艺|瑤瑤|瑶瑶|惠惠|female|woman|女聲|女声/i;
   const maleVoice=/kangkang|yunyang|yunxi|yunfeng|limu|li.?mu|eddy|aaron|康康|雲揚|云扬|雲希|云希|李木|male|man|男聲|男声/i;
-  function stopAudio(){if(activeAudio){activeAudio.pause();activeAudio.src='';activeAudio=null}if(activeAudioUrl){URL.revokeObjectURL(activeAudioUrl);activeAudioUrl=''}}
+  function stopAudio(){if(activeAudio){activeAudio.onplay=null;activeAudio.onended=null;activeAudio.onerror=null;activeAudio.pause();activeAudio.removeAttribute('src');activeAudio.load();activeAudio=null}if(activeAudioUrl){URL.revokeObjectURL(activeAudioUrl);activeAudioUrl=''}}
   function show(id,step){stopAudio();screens.forEach(s=>s.classList.toggle('active',s.id===id));$('#stepText').textContent=step;scrollTo({top:0,behavior:'smooth'});}
   function toast(t){clearTimeout(toastTimer);$('#status').textContent=t;$('#status').classList.add('show');toastTimer=setTimeout(()=>$('#status').classList.remove('show'),2200)}
   function setSpeaking(value){isSpeaking=value;['#speakBtn','#repeatBtn','#prevBtn','#nextBtn','#testVoiceBtn'].forEach(s=>{const el=$(s);if(el)el.setAttribute('aria-busy',String(value))})}
