@@ -56,7 +56,7 @@
       </div>
       <div class="notice hidden" id="voiceHelp">此裝置未找到符合 zh-CN、zh-Hans 或 Mandarin 的普通話聲音，系統已停止播放且不會改用粵語。iPhone 可到「設定 → 輔助使用 → 閱讀與朗讀 → 聲音 → 中文 → 國語」下載聲音，完成後重新打開此頁。</div>
       <details class="diagnostics"><summary>測試診斷資訊</summary><div class="diagnostics-body"><pre id="diagnosticText">正在檢查裝置…</pre><button class="btn secondary" id="copyDiagnosticBtn">複製診斷資訊</button></div></details>
-      <div class="actions"><button class="btn primary" id="testVoiceBtn">🔊 試聽普通話</button><button class="btn primary" id="startBtn">開始逐句陪讀</button><button class="btn secondary" id="dictationBtn">✍️ 開始默書練習</button><button class="btn secondary" data-go="home">重新拍攝</button></div>
+      <div class="actions"><button class="btn primary" id="testVoiceBtn">🔊 試聽普通話</button><button class="btn primary" id="startBtn">開始逐句陪讀</button><button class="btn secondary" id="dictationBtn">✍️ 開始默書練習</button><button class="btn secondary hidden" id="retryOcrBtn">🔁 再試一次辨識</button><button class="btn secondary" data-go="home">重新拍攝</button></div>
     </div>
   </section>
 
@@ -86,8 +86,8 @@
   </section>
 </main>
 <div class="status" id="status">正在分析教材…</div>
-<script src="./config.js?v=20"></script>
-<script type="module" src="./security.js?v=20"></script>
+<script src="./config.js?v=21"></script>
+<script type="module" src="./security.js?v=21"></script>
 <script>
   const demoText='春天来了，小草从泥土里探出头来。小鸟站在树枝上唱歌，孩子们在公园里快乐地玩耍。我们一起观察春天，读出每一句话。';
   const CLOUD_TTS_ENDPOINT=window.READING_COACH_CONFIG?.ttsEndpoint||'';
@@ -98,7 +98,7 @@
     {id:'Puck',gender:'male',label:'Puck · 男聲（自然沉穩）'}
   ];
   const CLOUD_VOICES=Object.fromEntries(CLOUD_VOICE_OPTIONS.map(v=>[v.id,`cmn-CN-Chirp3-HD-${v.id}`]));
-  let segments=[],quizData=[],sessionWrong=[],current=0,dictationAt=0,quizAt=0,correct=0,practiceMode='reading',selectedVoice=null,voices=[],allVoices=[],gender=localStorage.getItem('mandarinGender')||'female',voiceId=localStorage.getItem('mandarinVoiceId')||'Aoede',voiceVerified=false,deviceMode=false,deviceTested=false,ocrWorker=null,ocrScriptPromise=null,paddleOcr=null,paddlePromise=null,paddleRuntime='尚未初始化',toastTimer,selectedRate=.72,lastDiagnostic='尚未播放',activeAudio=null,activeAudioUrl='',isSpeaking=false,pendingImageFile=null,cropObjectUrl='',cropDrag=null,cropBounds=null,cropRect=null;
+  let segments=[],quizData=[],sessionWrong=[],current=0,dictationAt=0,quizAt=0,correct=0,practiceMode='reading',selectedVoice=null,voices=[],allVoices=[],gender=localStorage.getItem('mandarinGender')||'female',voiceId=localStorage.getItem('mandarinVoiceId')||'Aoede',voiceVerified=false,deviceMode=false,deviceTested=false,ocrWorker=null,ocrScriptPromise=null,paddleOcr=null,paddlePromise=null,paddleRuntime='尚未初始化',toastTimer,selectedRate=.72,lastDiagnostic='尚未播放',activeAudio=null,activeAudioUrl='',isSpeaking=false,speechRun=0,audioContext=null,lastAnalysisFile=null,lastPreviewUrl='',analysisRunId=0,pendingImageFile=null,cropObjectUrl='',cropDrag=null,cropBounds=null,cropRect=null;
   const $=s=>document.querySelector(s), screens=[...document.querySelectorAll('.screen')];
   const DEVICE_MODE='__device_zh_cn__';
   const HISTORY_KEY='aiReadingHistoryV1';
@@ -109,7 +109,9 @@
   const femaleVoice=/ting.?ting|meijia|mei.?jia|sin.?ji|xiaoxiao|xiaoyi|xiaohan|xiaomeng|huihui|yaoyao|婷婷|美佳|曉曉|晓晓|小藝|小艺|瑤瑤|瑶瑶|惠惠|female|woman|女聲|女声/i;
   const maleVoice=/kangkang|yunyang|yunxi|yunfeng|limu|li.?mu|eddy|aaron|康康|雲揚|云扬|雲希|云希|李木|male|man|男聲|男声/i;
   function stopAudio(){if(activeAudio){activeAudio.onplay=null;activeAudio.onended=null;activeAudio.onerror=null;activeAudio.pause();activeAudio.removeAttribute('src');activeAudio.load();activeAudio=null}if(activeAudioUrl){URL.revokeObjectURL(activeAudioUrl);activeAudioUrl=''}}
-  function show(id,step){stopAudio();screens.forEach(s=>s.classList.toggle('active',s.id===id));$('#stepText').textContent=step;scrollTo({top:0,behavior:'smooth'});}
+  function cancelSpeech(){speechRun++;stopAudio()}
+  function unlockAudio(){try{audioContext??=new (window.AudioContext||window.webkitAudioContext)();if(audioContext.state==='suspended')void audioContext.resume();if(audioContext.state==='running'){const buffer=audioContext.createBuffer(1,1,22050),source=audioContext.createBufferSource();source.buffer=buffer;source.connect(audioContext.destination);source.start(0)}}catch(err){console.debug('audio unlock skipped',err)}}
+  function show(id,step){cancelSpeech();screens.forEach(s=>s.classList.toggle('active',s.id===id));$('#stepText').textContent=step;scrollTo({top:0,behavior:'smooth'});}
   function toast(t){clearTimeout(toastTimer);$('#status').textContent=t;$('#status').classList.add('show');toastTimer=setTimeout(()=>$('#status').classList.remove('show'),2200)}
   function setSpeaking(value){isSpeaking=value;['#speakBtn','#repeatBtn','#prevBtn','#nextBtn','#testVoiceBtn'].forEach(s=>{const el=$(s);if(el)el.setAttribute('aria-busy',String(value))})}
   function getHistory(){try{const value=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');return Array.isArray(value)?value:[]}catch{return []}}
@@ -136,15 +138,18 @@
     $('#testVoiceBtn').disabled=true;updateTextStats();updateDiagnostics();
   }
   refreshVoices();
-  async function cacheKey(text){const raw=new TextEncoder().encode(`${CLOUD_VOICES[voiceId]}|${text}`),hash=await crypto.subtle.digest('SHA-256',raw);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+  async function cacheKey(text,voiceName=CLOUD_VOICES[voiceId]){const raw=new TextEncoder().encode(`${voiceName}|${text}`),hash=await crypto.subtle.digest('SHA-256',raw);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('')}
   async function getCachedAudio(key){if(!('caches'in window))return null;const cache=await caches.open('mandarin-natural-voice-v1'),hit=await cache.match(new Request(`${location.origin}/__tts_cache__/${key}`));return hit?hit.blob():null}
   async function putCachedAudio(key,blob){if(!('caches'in window))return;const cache=await caches.open('mandarin-natural-voice-v1');await cache.put(new Request(`${location.origin}/__tts_cache__/${key}`),new Response(blob,{headers:{'Content-Type':'audio/mpeg'}}))}
   async function speakCloud(text,onend){
-    try{stopAudio();const key=await cacheKey(text);let blob=await getCachedAudio(key);let cached=!!blob;
-      setSpeaking(true);if(!blob){lastDiagnostic='正在產生自然普通話…';updateDiagnostics();toast('正在準備自然普通話…');const securityHeaders=await window.AI_READING_SECURITY?.getHeaders?.();if(!securityHeaders)throw new Error('SECURITY_NOT_READY');const res=await fetch(CLOUD_TTS_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Client-Id':clientId,...securityHeaders},body:JSON.stringify({text,voice:CLOUD_VOICES[voiceId]})});
+    const requestId=++speechRun;
+    const requestedVoiceId=voiceId,requestedVoice=CLOUD_VOICES[requestedVoiceId],requestedGender=CLOUD_VOICE_OPTIONS.find(v=>v.id===requestedVoiceId)?.gender||'female';
+    try{stopAudio();unlockAudio();const key=await cacheKey(text,requestedVoice);if(requestId!==speechRun)return;let blob=await getCachedAudio(key);let cached=!!blob;
+      setSpeaking(true);if(!blob){lastDiagnostic='正在產生自然普通話…';updateDiagnostics();toast('正在準備自然普通話…');const securityHeaders=await window.AI_READING_SECURITY?.getHeaders?.();if(!securityHeaders)throw new Error('SECURITY_NOT_READY');if(requestId!==speechRun)return;const res=await fetch(CLOUD_TTS_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Client-Id':clientId,...securityHeaders},body:JSON.stringify({text,voice:requestedVoice})});
         if(!res.ok){let code=`TTS_${res.status}`;try{code=(await res.json()).error||code}catch{}throw new Error(code)}blob=await res.blob();await putCachedAudio(key,blob)}
-      activeAudioUrl=URL.createObjectURL(blob);activeAudio=new Audio(activeAudioUrl);activeAudio.playbackRate=selectedRate;activeAudio.preservesPitch=true;activeAudio.onplay=()=>{lastDiagnostic=`播放中：${gender==='female'?'自然女聲':'自然男聲'} / ${selectedRate}×${cached?' / 裝置快取':''}`;updateDiagnostics()};activeAudio.onended=()=>{setSpeaking(false);lastDiagnostic='自然普通話播放完成';updateDiagnostics();onend?.()};activeAudio.onerror=()=>{setSpeaking(false);lastDiagnostic='音訊播放失敗；沒有回退粵語';updateDiagnostics();toast('音訊播放失敗，請再按一次')};await activeAudio.play();
-    }catch(err){setSpeaking(false);console.error(err);const limits={MONTHLY_LIMIT:'本月網站語音上限已到',USER_DAILY_LIMIT:'今天的個人語音額度已用完',IP_DAILY_LIMIT:'此網絡今天的語音額度已用完',RATE_LIMIT:'操作太頻密，請稍後再試'};lastDiagnostic=limits[err.message]||((err.message==='SECURITY_CONFIG_NOT_READY'||err.message==='SECURITY_NOT_READY')?'安全驗證尚未完成設定':`自然普通話服務暫時未能使用：${err.message}`);updateDiagnostics();toast(limits[err.message]||((err.message||'').startsWith('SECURITY_')?'安全驗證尚未完成設定':'自然普通話暫時未能使用'))}
+      if(requestId!==speechRun)return;
+      activeAudioUrl=URL.createObjectURL(blob);activeAudio=new Audio(activeAudioUrl);activeAudio.playbackRate=selectedRate;activeAudio.preservesPitch=true;activeAudio.onplay=()=>{lastDiagnostic=`播放中：${requestedGender==='female'?'自然女聲':'自然男聲'} / ${selectedRate}×${cached?' / 裝置快取':''}`;updateDiagnostics()};activeAudio.onended=()=>{if(requestId!==speechRun)return;setSpeaking(false);lastDiagnostic='自然普通話播放完成';updateDiagnostics();onend?.()};activeAudio.onerror=()=>{if(requestId!==speechRun)return;setSpeaking(false);lastDiagnostic='音訊播放失敗；請按重播，不會回退粵語';updateDiagnostics();toast('音訊播放失敗，請再按一次')};await activeAudio.play();
+    }catch(err){if(requestId!==speechRun)return;setSpeaking(false);console.error(err);const limits={MONTHLY_LIMIT:'本月網站語音上限已到',USER_DAILY_LIMIT:'今天的個人語音額度已用完',IP_DAILY_LIMIT:'此網絡今天的語音額度已用完',RATE_LIMIT:'操作太頻密，請稍後再試',VOICE_NOT_ALLOWED:'所選聲音暫時無法使用，請重新選擇',TTS_400:'朗讀內容或聲音設定無效，請重新選擇',TTS_401:'安全驗證已過期，請再按一次',TTS_403:'目前網站未獲准使用語音服務',TTS_429:'語音服務忙碌或已達限制，請稍後再試',TTS_500:'語音服務暫時失效，請再按一次'};lastDiagnostic=limits[err.message]||((err.message==='SECURITY_CONFIG_NOT_READY'||err.message==='SECURITY_NOT_READY')?'安全驗證尚未完成設定':`自然普通話服務暫時未能使用：${err.message}`);updateDiagnostics();toast(limits[err.message]||((err.message||'').startsWith('SECURITY_')?'安全驗證尚未完成設定':'自然普通話暫時未能使用'))}
   }
   function speak(text,onend){if(CLOUD_TTS_ENABLED){void speakCloud(text,onend);return true}lastDiagnostic='自然普通話尚未連接；朗讀已安全停用';updateDiagnostics();toast('自然普通話尚未連接');return false}
   function splitText(text){
@@ -186,9 +191,14 @@
     const compact=String(candidate.text||'').replace(/\s/g,''),han=hanCount(candidate.text||''),latin=(String(candidate.text||'').match(/[A-Za-z]{2,}/g)||[]).length,weird=(String(candidate.text||'').match(/[<>{}\[\]$*_`~^|\\]/g)||[]).length;
     return candidate.confidence>=68&&han>=14&&han/Math.max(1,compact.length)>=.35&&latin<Math.max(8,han*.6)&&weird<4;
   }
+  function withTimeout(promise,ms,label){
+    let timer;
+    const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label)),ms)});
+    return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
+  }
   async function recognizePaddleBestOrientation(file){
     const engine=await getPaddleOcr(),candidates=[];
-    const run=async angle=>{ $('#analysisMessage').textContent=`PaddleOCR 正在辨識 ${angle}° 方向…`;const canvas=await rotateImage(file,angle,'clean'),started=performance.now(),inputSide=Math.max(canvas.width,canvas.height),detLimit=Math.min(1024,Math.max(768,Math.round(inputSide*.64))),[result]=await engine.predict(canvas,{textDetLimitSideLen:detLimit,textRecScoreThresh:.35});const text=layoutPaddleText(result),candidate={result,text,angle,mode:'paddle',confidence:Math.round(((result?.items||[]).reduce((s,i)=>s+Number(i.score||0),0)/Math.max(1,result?.items?.length||0))*100),elapsed:Math.round(performance.now()-started)};candidate.score=paddleQuality(result,text);candidates.push(candidate);return candidate};
+    const run=async angle=>{ $('#analysisMessage').textContent=`PaddleOCR 正在辨識 ${angle}° 方向…`;const canvas=await rotateImage(file,angle,'clean'),started=performance.now(),inputSide=Math.max(canvas.width,canvas.height),detLimit=Math.min(1024,Math.max(768,Math.round(inputSide*.64))),[result]=await withTimeout(engine.predict(canvas,{textDetLimitSideLen:detLimit,textRecScoreThresh:.35}),30000,'PADDLE_TIMEOUT');const text=layoutPaddleText(result),candidate={result,text,angle,mode:'paddle',confidence:Math.round(((result?.items||[]).reduce((s,i)=>s+Number(i.score||0),0)/Math.max(1,result?.items?.length||0))*100),elapsed:Math.round(performance.now()-started)};candidate.score=paddleQuality(result,text);candidates.push(candidate);return candidate};
     const first=await run(0);
     // Most pages are already upright. Avoid two extra full inferences unless the
     // first result is clearly weak or contains an implausible character mix.
@@ -282,7 +292,7 @@
     if(!pendingImageFile||!cropRect||!cropBounds)return;const img=$('#cropImage'),r=full?{x:cropBounds.left,y:cropBounds.top,w:cropBounds.width,h:cropBounds.height}:cropRect,sx=Math.max(0,Math.round((r.x-cropBounds.left)*img.naturalWidth/cropBounds.width)),sy=Math.max(0,Math.round((r.y-cropBounds.top)*img.naturalHeight/cropBounds.height)),sw=Math.max(1,Math.min(img.naturalWidth-sx,Math.round(r.w*img.naturalWidth/cropBounds.width))),sh=Math.max(1,Math.min(img.naturalHeight-sy,Math.round(r.h*img.naturalHeight/cropBounds.height))),canvas=document.createElement('canvas');canvas.width=sw;canvas.height=sh;canvas.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,sw,sh);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.92));if(!blob)return toast('裁剪未完成，請再試一次');const name=(pendingImageFile.name||'教材相片').replace(/\.[^.]+$/,'')+'.jpg',file=new File([blob],name,{type:'image/jpeg'});if(cropObjectUrl)URL.revokeObjectURL(cropObjectUrl);cropObjectUrl='';pendingImageFile=null;cropRect=null;cropBounds=null;analyse(file);
   }
   async function analyse(file){
-    const img=document.createElement('img');img.alt='剛拍攝的教材';img.src=URL.createObjectURL(file);$('#thumb').replaceChildren(img);show('analyse','辨識');$('#analysisTitle').textContent='正在辨識教材';$('#analysisMessage').textContent='PaddleOCR 會在這部裝置內辨識；首次使用需下載中文模型。';$('#scanProgress').classList.remove('hidden');$('#scanBar').style.width='3%';$('#extractedText').value='';updateTextStats();
+    const runId=++analysisRunId;lastAnalysisFile=file;$('#retryOcrBtn').classList.add('hidden');if(lastPreviewUrl)URL.revokeObjectURL(lastPreviewUrl);lastPreviewUrl=URL.createObjectURL(file);const img=document.createElement('img');img.alt='剛拍攝的教材';img.src=lastPreviewUrl;$('#thumb').replaceChildren(img);show('analyse','辨識');$('#analysisTitle').textContent='正在辨識教材';$('#analysisMessage').textContent='PaddleOCR 會在這部裝置內辨識；首次使用需下載中文模型。';$('#scanProgress').classList.remove('hidden');$('#scanBar').style.width='3%';$('#extractedText').value='';updateTextStats();
     try{
       let result,engine='PaddleOCR PP-OCRv5';
       try{result=await recognizePaddleBestOrientation(file)}catch(paddleErr){
@@ -290,6 +300,7 @@
         lastDiagnostic=`PaddleOCR 未能載入，改用本機 Tesseract 備援：${paddleErr.message||paddleErr}`;
         const worker=await getWorker();result=await recognizeBestOrientation(worker,file);engine='Tesseract 備援';
       }
+      if(runId!==analysisRunId)return;
       const text=normalizeOcrText(result.text);$('#extractedText').value=text;
       lastDiagnostic=result.paddle
         ? `${engine} 完成；${paddleRuntime}；方向 ${result.angle}°；比較 ${result.orientationChecked||3} 個方向；文字框 ${(result.result?.items||[]).length} 行；可信度 ${Math.round(result.confidence||0)}%${result.elapsed?`；方向耗時 ${result.elapsed} ms`:''}`
@@ -299,10 +310,11 @@
         ? (result.paddle
           ? (result.confidence<55?'辨識可信度較低，請檢查文字或重新裁剪。':'已使用 PaddleOCR 偵測文字框、比較拍攝方向並按教材段落排序；如有錯字可直接修改。')
           : (result.confidence<65?'辨識可信度較低，已改用本機備援並嘗試多方向；請檢查文字或重新裁剪。':'已使用本機備援校正方向、增強影像並按文字框排序；如有錯字可直接修改。'))
-        :'請換一張更清楚、保持文字完整且光線均勻的照片，或直接貼上教材文字。';
+        :'這次沒有取得文字，請按「再試一次辨識」；仍失敗才重新裁剪或貼上文字。';
+      $('#retryOcrBtn').classList.toggle('hidden',Boolean(text));
       $('#scanBar').style.width='100%';setTimeout(()=>$('#scanProgress').classList.add('hidden'),500);updateTextStats();
     }
-    catch(err){console.error(err);lastDiagnostic=`本機 OCR 錯誤：${err.message||'未知錯誤'}`;updateDiagnostics();$('#analysisTitle').textContent='文字辨識未能啟動';$('#analysisMessage').textContent='請檢查網絡後再試，或直接在下方貼上教材文字。';$('#scanProgress').classList.add('hidden');toast('辨識未完成，但仍可貼上文字使用');}
+    catch(err){if(runId!==analysisRunId)return;console.error(err);lastDiagnostic=`本機 OCR 錯誤：${err.message||'未知錯誤'}`;updateDiagnostics();$('#analysisTitle').textContent='文字辨識未能完成';$('#analysisMessage').textContent='辨識程序暫時失效，請按「再試一次辨識」；也可以重新裁剪或直接貼上教材文字。';$('#retryOcrBtn').classList.remove('hidden');$('#scanProgress').classList.add('hidden');toast('辨識未完成，可按再試一次')}
   }
   $('#cameraPhoto').addEventListener('click',warmPaddle);
   $('#galleryPhoto').addEventListener('click',warmPaddle);
@@ -314,6 +326,8 @@
   $('#cropStage').addEventListener('pointercancel',cropPointerUp);
   $('#cropConfirmBtn').onclick=()=>cropToFile(false);
   $('#cropFullBtn').onclick=()=>cropToFile(true);
+  $('#retryOcrBtn').onclick=()=>{if(lastAnalysisFile)void analyse(lastAnalysisFile)};
+  document.addEventListener('pointerdown',unlockAudio,{passive:true});
   $('#demoBtn').onclick=()=>{show('analyse','設定');$('#thumb').innerHTML='<span style="font-size:60px">📖</span>';$('#analysisTitle').textContent='示範教材已準備好';$('#analysisMessage').textContent='這是完整的逐句陪讀及聆聽練習。';$('#scanProgress').classList.add('hidden');$('#extractedText').value=demoText;updateTextStats()};
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>show(b.dataset.go,'開始'));
   document.querySelectorAll('.rate-btn').forEach(b=>b.onclick=()=>{selectedRate=Number(b.dataset.rate);localStorage.setItem('mandarinRate',String(selectedRate));document.querySelectorAll('.rate-btn').forEach(x=>x.classList.toggle('selected',x===b));const label=selectedRate===.55?'最慢':selectedRate===.72?'陪讀慢速':selectedRate===.85?'稍慢':'自然速度';$('#rateLabel').textContent=`${label} ${selectedRate}×`;updateDiagnostics()});

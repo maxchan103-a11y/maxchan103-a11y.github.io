@@ -1,4 +1,4 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
+import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, signInAnonymously, getIdToken } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import {
   initializeAppCheck,
@@ -21,18 +21,26 @@ function configured() {
 }
 
 let initPromise = null;
+let securityApp = null;
+let authInstance = null;
+let appCheckInstance = null;
 
 async function initializeSecurity() {
   if (!configured()) throw new Error('SECURITY_CONFIG_NOT_READY');
 
-  const app = initializeApp(firebaseCfg);
-  const auth = getAuth(app);
-  const appCheck = initializeAppCheck(app, {
+  // Reuse initialized Firebase objects after a transient App Check/Auth error.
+  // Calling initializeApp() again would otherwise leave later read attempts in
+  // a permanent duplicate-app failure state.
+  securityApp ||= getApps().find(item => item.name === '[DEFAULT]') || initializeApp(firebaseCfg);
+  authInstance ||= getAuth(securityApp);
+  appCheckInstance ||= initializeAppCheck(securityApp, {
     // Invisible, score-based protection. No checkbox/image challenge is shown
     // during normal use.
     provider: new ReCaptchaEnterpriseProvider(appCheckCfg.siteKey),
     isTokenAutoRefreshEnabled: true
   });
+  const auth = authInstance;
+  const appCheck = appCheckInstance;
 
   // Invisible anonymous identity. There is no sign-in screen for the user.
   if (!auth.currentUser) await signInAnonymously(auth);
@@ -43,7 +51,14 @@ async function initializeSecurity() {
 }
 
 async function ensureReady() {
-  if (!initPromise) initPromise = initializeSecurity();
+  if (!initPromise) {
+    initPromise = initializeSecurity().catch((err) => {
+      // A transient App Check/Auth failure must not permanently poison all
+      // later TTS attempts. The next user action can initialize afresh.
+      initPromise = null;
+      throw err;
+    });
+  }
   return initPromise;
 }
 
