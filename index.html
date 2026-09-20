@@ -14,7 +14,7 @@
     header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.brand{display:flex;align-items:center;gap:10px;font-size:1.18rem;font-weight:800}.mark{width:38px;height:38px;border-radius:12px;background:var(--blue);display:grid;place-items:center;color:white;font-size:20px;box-shadow:0 7px 16px #173e7340}.step{font-size:.83rem;color:var(--muted);font-weight:700}
     .screen{display:none}.screen.active{display:block;animation:appear .28s ease}@keyframes appear{from{opacity:.2;transform:translateY(6px)}to{opacity:1;transform:none}}
     h1{font-size:clamp(1.65rem,7vw,2.35rem);line-height:1.18;margin:12px 0 8px}p{font-size:1rem;line-height:1.65;margin:0;color:var(--muted)}
-    .upload{margin-top:22px;background:rgba(255,255,255,.9);border:2px dashed #a8c3df;border-radius:26px;padding:28px 18px;text-align:center;box-shadow:var(--shadow)}.camera{font-size:52px;line-height:1}.upload h2{font-size:1.25rem;margin:12px 0 5px}.upload input{display:none}
+    .upload{margin-top:22px;background:rgba(255,255,255,.9);border:2px dashed #a8c3df;border-radius:26px;padding:28px 18px;text-align:center;box-shadow:var(--shadow)}.camera{font-size:52px;line-height:1}.upload h2{font-size:1.25rem;margin:12px 0 5px}.upload input{display:none}.upload-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.upload-actions .btn{min-height:50px;padding:12px 8px}.crop-stage{position:relative;display:flex;align-items:center;justify-content:center;min-height:260px;max-height:58vh;margin:16px 0;border-radius:19px;background:#14263b;overflow:hidden;touch-action:none}.crop-stage img{display:block;max-width:100%;max-height:58vh;width:auto;height:auto;user-select:none;pointer-events:none}.crop-box{position:absolute;border:3px solid #fff;box-shadow:0 0 0 9999px rgba(8,20,34,.54);touch-action:none;cursor:move}.crop-box:after{content:'';position:absolute;inset:33.33%;border:1px solid rgba(255,255,255,.65);pointer-events:none}.crop-handle{position:absolute;width:24px;height:24px;border:3px solid #fff;background:var(--blue);border-radius:7px;z-index:2;touch-action:none}.crop-handle[data-handle=nw]{left:-12px;top:-12px;cursor:nwse-resize}.crop-handle[data-handle=ne]{right:-12px;top:-12px;cursor:nesw-resize}.crop-handle[data-handle=sw]{left:-12px;bottom:-12px;cursor:nesw-resize}.crop-handle[data-handle=se]{right:-12px;bottom:-12px;cursor:nwse-resize}.crop-help{font-size:.86rem;line-height:1.5;padding:11px 12px;border-radius:13px;background:#eef7ff;color:#355a7f;border:1px solid #cfe3f4}
     .btn{border:0;border-radius:17px;padding:15px 18px;min-height:54px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;width:100%}.primary{background:var(--blue);color:#fff;box-shadow:0 10px 24px #173e7340}.secondary{background:white;color:var(--blue);border:1px solid var(--line)}.btn:active{transform:scale(.985)}.actions{display:grid;gap:10px;margin-top:18px}.small-note{font-size:.82rem;margin-top:14px}
     .sample{margin-top:18px;padding:14px 16px;border-radius:16px;background:#ffffff99;border:1px solid var(--line);font-size:.88rem;color:var(--muted)}
     .analysis{background:white;border-radius:26px;padding:20px;box-shadow:var(--shadow)}.thumb{height:155px;border-radius:19px;background:linear-gradient(145deg,#dff1ff,#fff6d9);display:grid;place-items:center;overflow:hidden;margin-bottom:18px}.thumb img{width:100%;height:100%;object-fit:cover}.lesson-letters{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.pill{width:42px;height:42px;border-radius:13px;background:var(--sky);display:grid;place-items:center;font-size:1.15rem;font-weight:900;color:var(--blue)}.facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.fact{background:#f5f8fb;padding:12px;border-radius:14px}.fact span{display:block;font-size:.78rem;color:var(--muted);margin-bottom:3px}.fact strong{font-size:.95rem}
@@ -35,9 +35,13 @@
 
   <section class="screen active" id="home">
     <h1>拍下今天的教材</h1><p>把任何一頁普通話教材變成逐句陪讀練習。</p>
-    <label class="upload" for="photo"><div class="camera">📷</div><h2>拍照或選擇圖片</h2><p>字要清楚，盡量拍完整一頁</p><input id="photo" type="file" accept="image/*" capture="environment"></label>
+    <div class="upload"><div class="camera">📷</div><h2>加入教材相片</h2><p>拍照或上載後，下一步可裁剪需要辨識的範圍</p><div class="upload-actions"><label class="btn primary" for="cameraPhoto">📷 拍照<input id="cameraPhoto" type="file" accept="image/*" capture="environment"></label><label class="btn secondary" for="galleryPhoto">🖼️ 上載相片<input id="galleryPhoto" type="file" accept="image/*"></label></div></div>
     <div class="actions"><button class="btn secondary" id="demoBtn">不用拍照，先試完整流程</button><button class="btn secondary" id="historyBtn">📋 查看學習紀錄與錯題</button></div>
     <div class="sample">教材圖片只在你的裝置內辨識，不會上傳。啟用自然普通話後，只有需要朗讀的文字會傳送到語音服務產生音訊；已產生的句子會在這部裝置快取，重播不會再次請求。</div>
+  </section>
+
+  <section class="screen" id="crop">
+    <div class="analysis"><h1 style="font-size:1.55rem">裁剪教材範圍</h1><p>拖動白色方框，或拉動四角，只保留需要辨識的文字。</p><div class="crop-stage" id="cropStage"><img id="cropImage" alt="待裁剪的教材相片"><div class="crop-box" id="cropBox"><span class="crop-handle" data-handle="nw"></span><span class="crop-handle" data-handle="ne"></span><span class="crop-handle" data-handle="sw"></span><span class="crop-handle" data-handle="se"></span></div></div><div class="crop-help">裁走書邊、插圖及其他頁面，可減少錯誤；如果要辨識整頁，直接按「使用整張相片」。</div><div class="actions"><button class="btn primary" id="cropConfirmBtn">使用這個範圍</button><button class="btn secondary" id="cropFullBtn">使用整張相片</button><button class="btn secondary" data-go="home">重新選擇相片</button></div></div>
   </section>
 
   <section class="screen" id="analyse">
@@ -94,7 +98,7 @@
     {id:'Puck',gender:'male',label:'Puck · 男聲（自然沉穩）'}
   ];
   const CLOUD_VOICES=Object.fromEntries(CLOUD_VOICE_OPTIONS.map(v=>[v.id,`cmn-CN-Chirp3-HD-${v.id}`]));
-  let segments=[],quizData=[],sessionWrong=[],current=0,dictationAt=0,quizAt=0,correct=0,practiceMode='reading',selectedVoice=null,voices=[],allVoices=[],gender=localStorage.getItem('mandarinGender')||'female',voiceId=localStorage.getItem('mandarinVoiceId')||'Aoede',voiceVerified=false,deviceMode=false,deviceTested=false,ocrWorker=null,ocrScriptPromise=null,toastTimer,selectedRate=.72,lastDiagnostic='尚未播放',activeAudio=null,activeAudioUrl='',isSpeaking=false;
+  let segments=[],quizData=[],sessionWrong=[],current=0,dictationAt=0,quizAt=0,correct=0,practiceMode='reading',selectedVoice=null,voices=[],allVoices=[],gender=localStorage.getItem('mandarinGender')||'female',voiceId=localStorage.getItem('mandarinVoiceId')||'Aoede',voiceVerified=false,deviceMode=false,deviceTested=false,ocrWorker=null,ocrScriptPromise=null,toastTimer,selectedRate=.72,lastDiagnostic='尚未播放',activeAudio=null,activeAudioUrl='',isSpeaking=false,pendingImageFile=null,cropObjectUrl='',cropDrag=null,cropBounds=null,cropRect=null;
   const $=s=>document.querySelector(s), screens=[...document.querySelectorAll('.screen')];
   const DEVICE_MODE='__device_zh_cn__';
   const HISTORY_KEY='aiReadingHistoryV1';
@@ -161,25 +165,33 @@
   }
   function hanCount(s){return (s.match(/[\u3400-\u9fff]/g)||[]).length}
   function layoutText(result){
-    const lines=(result?.data?.lines||[]).filter(line=>String(line.text||'').trim()&&line.bbox);
-    if(lines.length<2)return String(result?.data?.text||'').trim();
-    const cleanLine=text=>String(text||'').replace(/\s+([，。！？；：、,.!?;:])/g,'$1').trim();
-    const items=lines.map(line=>{const b=line.bbox;return {text:cleanLine(line.text),x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2,w:Math.max(1,b.x1-b.x0),h:Math.max(1,b.y1-b.y0)}});
+    const cleanLine=text=>String(text||'').replace(/[ \t]+/g,' ').replace(/\s+([，。！？；：、,.!?;:])/g,'$1').replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g,'$1').trim();
+    const paragraphItems=(result?.data?.paragraphs||[]).filter(p=>String(p.text||'').trim()&&p.bbox).map(p=>{const b=p.bbox;return {text:cleanLine(p.text),x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2,w:Math.max(1,b.x1-b.x0),h:Math.max(1,b.y1-b.y0),top:b.y0,left:b.x0}});
+    const lineItems=(result?.data?.lines||[]).filter(line=>String(line.text||'').trim()&&line.bbox).map(line=>{const b=line.bbox;return {text:cleanLine(line.text),x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2,w:Math.max(1,b.x1-b.x0),h:Math.max(1,b.y1-b.y0),top:b.y0,left:b.x0}});
+    const items=paragraphItems.length>=2?paragraphItems:lineItems;
+    if(items.length<2)return cleanLine(result?.data?.text||'');
     const median=a=>{const v=a.slice().sort((x,y)=>x-y);return v[Math.floor(v.length/2)]||1};
-    // Tall boxes indicate that the photographed page is arranged in vertical columns.
-    // In that case Chinese reading order is right-to-left, then top-to-bottom.
-    const vertical=median(items.map(i=>i.h/i.w))>1.35;
+    const medianH=median(items.map(i=>i.h)),medianW=median(items.map(i=>i.w));
+    // Tall/narrow OCR regions indicate a traditional vertical page. Read columns
+    // from right to left, and characters/lines from top to bottom.
+    const verticalRatio=items.filter(i=>i.h>i.w*1.15).length/items.length;
+    const vertical=verticalRatio>.5||median(items.map(i=>i.h/i.w))>1.35;
     if(vertical){
-      const gap=Math.max(8,median(items.map(i=>i.w))*1.15),cols=[];
-      items.slice().sort((a,b)=>b.x-a.x).forEach(item=>{let col=cols.find(c=>Math.abs(c.x-item.x)<=gap);if(!col){col={x:item.x,items:[]};cols.push(col)}col.items.push(item);col.x=col.items.reduce((s,i)=>s+i.x,0)/col.items.length});
-      return cols.sort((a,b)=>b.x-a.x).map(c=>c.items.sort((a,b)=>a.y-b.y).map(i=>i.text).join('')).join('\n');
+      const cols=[];
+      items.slice().sort((a,b)=>b.x-a.x).forEach(item=>{
+        const hit=cols.find(c=>Math.abs(c.x-item.x)<=Math.max(12,medianW*.9));
+        if(hit){hit.items.push(item);hit.x=hit.items.reduce((sum,v)=>sum+v.x,0)/hit.items.length}else cols.push({x:item.x,items:[item]});
+      });
+      return cols.sort((a,b)=>b.x-a.x).map(c=>c.items.sort((a,b)=>a.y-b.y).map(i=>i.text).join('')).join('\n\n');
     }
-    // Horizontal pages are read row-by-row. Keep each OCR row on its own line so
-    // splitText can later use the photographed paragraph layout instead of a
-    // single OCR blob with merged sentences.
-    const gap=Math.max(6,median(items.map(i=>i.h))*.65),rows=[];
-    items.slice().sort((a,b)=>a.y-b.y||a.x-b.x).forEach(item=>{let row=rows.find(r=>Math.abs(r.y-item.y)<=gap);if(!row){row={y:item.y,items:[]};rows.push(row)}row.items.push(item);row.y=row.items.reduce((s,i)=>s+i.y,0)/row.items.length});
-    return rows.sort((a,b)=>a.y-b.y).map(r=>r.items.sort((a,b)=>a.x-b.x).map(i=>i.text).join('')).join('\n');
+    // For horizontal pages, group text boxes by vertical overlap rather than only
+    // their centre. This keeps nearby lines/paragraphs from being interleaved.
+    const rows=[];
+    items.slice().sort((a,b)=>a.top-b.top||a.left-b.left).forEach(item=>{
+      const hit=rows.find(row=>{const overlap=Math.min(row.bottom,item.top+item.h)-Math.max(row.top,item.top);return overlap>Math.min(row.height,item.h)*.35||Math.abs(row.center-item.y)<=Math.max(8,medianH*.55)});
+      if(hit){hit.items.push(item);hit.top=Math.min(hit.top,item.top);hit.bottom=Math.max(hit.bottom,item.top+item.h);hit.height=hit.bottom-hit.top;hit.center=(hit.top+hit.bottom)/2}else rows.push({top:item.top,bottom:item.top+item.h,height:item.h,center:item.y,items:[item]});
+    });
+    return rows.sort((a,b)=>a.top-b.top).map(row=>row.items.sort((a,b)=>a.left-b.left).map(i=>i.text).join('')).join('\n');
   }
   function rotateImage(file,angle){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const scale=Math.min(1.15,2400/Math.max(img.naturalWidth,img.naturalHeight)),w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale)),swap=angle%180!==0,canvas=document.createElement('canvas');canvas.width=swap?h:w;canvas.height=swap?w:h;const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(angle*Math.PI/180);ctx.drawImage(img,-w/2,-h/2,w,h);const image=ctx.getImageData(0,0,canvas.width,canvas.height),d=image.data;for(let i=0;i<d.length;i+=4){const y=(d[i]*.299+d[i+1]*.587+d[i+2]*.114);const v=Math.max(0,Math.min(255,(y-128)*1.22+128));d[i]=d[i+1]=d[i+2]=v}ctx.putImageData(image,0,0);URL.revokeObjectURL(img.src);resolve(canvas)};img.onerror=reject;img.src=URL.createObjectURL(file)})}
   async function recognizeBestOrientation(worker,file){
@@ -196,12 +208,43 @@
   function normalizeOcrText(text){
     return text.normalize('NFKC').replace(/\r/g,'').replace(/[ \t]+/g,' ').replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g,'$1').replace(/\n{2,}/g,'\n').trim();
   }
+  function displayedImageRect(){
+    const stage=$('#cropStage'),img=$('#cropImage'),sr=stage.getBoundingClientRect(),ir=img.getBoundingClientRect();
+    return {left:ir.left-sr.left,top:ir.top-sr.top,width:ir.width,height:ir.height,right:ir.right-sr.left,bottom:ir.bottom-sr.top};
+  }
+  function applyCropRect(){if(!cropRect)return;const box=$('#cropBox');box.style.left=`${cropRect.x}px`;box.style.top=`${cropRect.y}px`;box.style.width=`${cropRect.w}px`;box.style.height=`${cropRect.h}px`}
+  function resetCropBox(){const b=displayedImageRect();if(!b.width||!b.height)return;cropBounds=b;cropRect={x:b.left+b.width*.04,y:b.top+b.height*.04,w:b.width*.92,h:b.height*.92};applyCropRect()}
+  function openCropEditor(file){
+    if(!file||!file.type.startsWith('image/'))return toast('請選擇 JPG、PNG 或其他相片檔案');
+    pendingImageFile=file;if(cropObjectUrl)URL.revokeObjectURL(cropObjectUrl);cropObjectUrl=URL.createObjectURL(file);show('crop','裁剪');
+    const img=$('#cropImage');img.onload=()=>requestAnimationFrame(resetCropBox);img.src=cropObjectUrl;
+  }
+  function cropPointerDown(event){
+    if(!cropRect||!cropBounds)return;const handle=event.target.closest('.crop-handle')?.dataset.handle||'move';cropDrag={handle,startX:event.clientX,startY:event.clientY,rect:{...cropRect}};event.currentTarget.setPointerCapture?.(event.pointerId);event.preventDefault();
+  }
+  function cropPointerMove(event){
+    if(!cropDrag||!cropBounds)return;const dx=event.clientX-cropDrag.startX,dy=event.clientY-cropDrag.startY,o=cropDrag.rect,b=cropBounds,min=42;let x=o.x,y=o.y,w=o.w,h=o.h;
+    if(cropDrag.handle==='move'){x=Math.max(b.left,Math.min(b.right-o.w,o.x+dx));y=Math.max(b.top,Math.min(b.bottom-o.h,o.y+dy))}
+    else {if(cropDrag.handle.includes('w')){x=Math.max(b.left,Math.min(o.x+o.w-min,o.x+dx));w=o.x+o.w-x}else if(cropDrag.handle.includes('e'))w=Math.max(min,Math.min(b.right-o.x,o.w+dx));if(cropDrag.handle.includes('n')){y=Math.max(b.top,Math.min(o.y+o.h-min,o.y+dy));h=o.y+o.h-y}else if(cropDrag.handle.includes('s'))h=Math.max(min,Math.min(b.bottom-o.y,o.h+dy))}
+    cropRect={x,y,w,h};applyCropRect();event.preventDefault();
+  }
+  function cropPointerUp(){cropDrag=null}
+  async function cropToFile(full=false){
+    if(!pendingImageFile||!cropRect||!cropBounds)return;const img=$('#cropImage'),r=full?cropBounds:cropRect,sx=Math.max(0,Math.round((r.x-cropBounds.left)*img.naturalWidth/cropBounds.width)),sy=Math.max(0,Math.round((r.y-cropBounds.top)*img.naturalHeight/cropBounds.height)),sw=Math.max(1,Math.min(img.naturalWidth-sx,Math.round(r.w*img.naturalWidth/cropBounds.width))),sh=Math.max(1,Math.min(img.naturalHeight-sy,Math.round(r.h*img.naturalHeight/cropBounds.height))),canvas=document.createElement('canvas');canvas.width=sw;canvas.height=sh;canvas.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,sw,sh);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.92));if(!blob)return toast('裁剪未完成，請再試一次');const name=(pendingImageFile.name||'教材相片').replace(/\.[^.]+$/,'')+'.jpg',file=new File([blob],name,{type:'image/jpeg'});if(cropObjectUrl)URL.revokeObjectURL(cropObjectUrl);cropObjectUrl='';pendingImageFile=null;cropRect=null;cropBounds=null;analyse(file);
+  }
   async function analyse(file){
     const img=document.createElement('img');img.alt='剛拍攝的教材';img.src=URL.createObjectURL(file);$('#thumb').replaceChildren(img);show('analyse','辨識');$('#analysisTitle').textContent='正在辨識教材';$('#analysisMessage').textContent='首次使用需下載中文模型，請保持頁面開啟。';$('#scanProgress').classList.remove('hidden');$('#scanBar').style.width='3%';$('#extractedText').value='';updateTextStats();
     try{const worker=await getWorker();const result=await recognizeBestOrientation(worker,file),text=normalizeOcrText(result.text);$('#extractedText').value=text;lastDiagnostic=`本機 OCR 完成；方向 ${result.angle}°；可信度 ${Math.round(result.confidence||0)}%`;$('#analysisTitle').textContent=text?'請先檢查辨識文字':'未能辨識文字';$('#analysisMessage').textContent=text?(result.confidence<65?'辨識可信度較低，請檢查文字或重新拍攝。':'已自動校正方向並按中文標點分句；如有錯字可直接修改。'):'請換一張更清楚、保持文字直向且光線均勻的照片，或直接貼上文字。';$('#scanBar').style.width='100%';setTimeout(()=>$('#scanProgress').classList.add('hidden'),500);updateTextStats();}
     catch(err){console.error(err);lastDiagnostic=`本機 OCR 錯誤：${err.message||'未知錯誤'}`;updateDiagnostics();$('#analysisTitle').textContent='文字辨識未能啟動';$('#analysisMessage').textContent='請檢查網絡後再試，或直接在下方貼上教材文字。';$('#scanProgress').classList.add('hidden');toast('辨識未完成，但仍可貼上文字使用');}
   }
-  $('#photo').addEventListener('change',e=>{if(e.target.files[0])analyse(e.target.files[0])});
+  $('#cameraPhoto').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';if(file)openCropEditor(file)});
+  $('#galleryPhoto').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';if(file)openCropEditor(file)});
+  $('#cropBox').addEventListener('pointerdown',cropPointerDown);
+  $('#cropStage').addEventListener('pointermove',cropPointerMove);
+  $('#cropStage').addEventListener('pointerup',cropPointerUp);
+  $('#cropStage').addEventListener('pointercancel',cropPointerUp);
+  $('#cropConfirmBtn').onclick=()=>cropToFile(false);
+  $('#cropFullBtn').onclick=()=>cropToFile(true);
   $('#demoBtn').onclick=()=>{show('analyse','設定');$('#thumb').innerHTML='<span style="font-size:60px">📖</span>';$('#analysisTitle').textContent='示範教材已準備好';$('#analysisMessage').textContent='這是完整的逐句陪讀及聆聽練習。';$('#scanProgress').classList.add('hidden');$('#extractedText').value=demoText;updateTextStats()};
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>show(b.dataset.go,'開始'));
   document.querySelectorAll('.rate-btn').forEach(b=>b.onclick=()=>{selectedRate=Number(b.dataset.rate);localStorage.setItem('mandarinRate',String(selectedRate));document.querySelectorAll('.rate-btn').forEach(x=>x.classList.toggle('selected',x===b));const label=selectedRate===.55?'最慢':selectedRate===.72?'陪讀慢速':selectedRate===.85?'稍慢':'自然速度';$('#rateLabel').textContent=`${label} ${selectedRate}×`;updateDiagnostics()});
