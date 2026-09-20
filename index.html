@@ -98,7 +98,7 @@
     {id:'Puck',gender:'male',label:'Puck · 男聲（自然沉穩）'}
   ];
   const CLOUD_VOICES=Object.fromEntries(CLOUD_VOICE_OPTIONS.map(v=>[v.id,`cmn-CN-Chirp3-HD-${v.id}`]));
-  let segments=[],quizData=[],sessionWrong=[],current=0,dictationAt=0,quizAt=0,correct=0,practiceMode='reading',selectedVoice=null,voices=[],allVoices=[],gender=localStorage.getItem('mandarinGender')||'female',voiceId=localStorage.getItem('mandarinVoiceId')||'Aoede',voiceVerified=false,deviceMode=false,deviceTested=false,ocrWorker=null,ocrScriptPromise=null,paddleOcr=null,paddlePromise=null,toastTimer,selectedRate=.72,lastDiagnostic='尚未播放',activeAudio=null,activeAudioUrl='',isSpeaking=false,pendingImageFile=null,cropObjectUrl='',cropDrag=null,cropBounds=null,cropRect=null;
+  let segments=[],quizData=[],sessionWrong=[],current=0,dictationAt=0,quizAt=0,correct=0,practiceMode='reading',selectedVoice=null,voices=[],allVoices=[],gender=localStorage.getItem('mandarinGender')||'female',voiceId=localStorage.getItem('mandarinVoiceId')||'Aoede',voiceVerified=false,deviceMode=false,deviceTested=false,ocrWorker=null,ocrScriptPromise=null,paddleOcr=null,paddlePromise=null,paddleRuntime='尚未初始化',toastTimer,selectedRate=.72,lastDiagnostic='尚未播放',activeAudio=null,activeAudioUrl='',isSpeaking=false,pendingImageFile=null,cropObjectUrl='',cropDrag=null,cropBounds=null,cropRect=null;
   const $=s=>document.querySelector(s), screens=[...document.querySelectorAll('.screen')];
   const DEVICE_MODE='__device_zh_cn__';
   const HISTORY_KEY='aiReadingHistoryV1';
@@ -166,8 +166,13 @@
   function hanCount(s){return (s.match(/[\u3400-\u9fff]/g)||[]).length}
   async function getPaddleOcr(){
     if(paddleOcr)return paddleOcr;if(paddlePromise)return paddlePromise;
-    paddlePromise=(async()=>{const pct='首次使用會下載端側中文模型，請保持頁面開啟。';$('#analysisMessage').textContent=`正在載入 PaddleOCR.js（PP-OCRv5）…\n${pct}`;const mod=await import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/+esm');if(!mod.PaddleOCR)throw new Error('PADDLEOCR_UNAVAILABLE');const instance=await mod.PaddleOCR.create({lang:'ch',ocrVersion:'PP-OCRv5',textDetectionBatchSize:1,textRecognitionBatchSize:4,ortOptions:{backend:'wasm',wasmPaths:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/',numThreads:1,simd:true}});paddleOcr=instance;return instance})();
+    paddlePromise=(async()=>{const pct='首次使用會下載端側中文模型，請保持頁面開啟。';$('#analysisMessage').textContent=`正在載入 PaddleOCR.js（PP-OCRv5 Mobile）…\n${pct}`;const mod=await import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/+esm');if(!mod.PaddleOCR)throw new Error('PADDLEOCR_UNAVAILABLE');const threaded=window.crossOriginIsolated===true,threads=threaded?Math.min(4,Math.max(2,navigator.hardwareConcurrency||2)):1,options={textDetectionModelName:'PP-OCRv5_mobile_det',textRecognitionModelName:'PP-OCRv5_mobile_rec',worker:false,textDetectionBatchSize:1,textRecognitionBatchSize:4,ortOptions:{backend:'wasm',wasmPaths:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/',numThreads:threads,simd:true}};const instance=await mod.PaddleOCR.create(options);paddleRuntime=`主線程／WASM SIMD${threaded?`／${threads} 線程`:'／單線程（GitHub Pages限制）'}`;paddleOcr=instance;return instance})();
     try{return await paddlePromise}catch(err){paddlePromise=null;throw err}
+  }
+  function warmPaddle(){
+    if(paddleOcr||paddlePromise)return;
+    $('#status').textContent='正在預先準備端側文字辨識模型…';$('#status').classList.add('show');
+    void getPaddleOcr().then(()=>{toast('文字辨識模型已準備好')}).catch(err=>{console.warn('PaddleOCR warm-up failed',err);toast('辨識模型稍後會在裁剪後載入')});
   }
   function paddleItems(result){return (result?.items||[]).filter(i=>String(i.text||'').trim()).map((item,index)=>{const poly=item.poly||item.box||[],pts=Array.isArray(poly)?poly.flatMap(v=>Array.isArray(v)?v:[]):[],xs=[],ys=[];for(let i=0;i<pts.length;i+=2){if(Number.isFinite(pts[i]))xs.push(pts[i]);if(Number.isFinite(pts[i+1]))ys.push(pts[i+1])}const x=xs.length?Math.min(...xs):0,y=ys.length?Math.min(...ys):0,w=xs.length?Math.max(...xs)-x:1,h=ys.length?Math.max(...ys)-y:1;return {...item,index,x,y,w,h,top:y,left:x}})}
   function layoutPaddleText(result){
@@ -177,9 +182,21 @@
     const rows=[];items.slice().sort((a,b)=>a.top-b.top||a.left-b.left).forEach(item=>{const row=rows.find(r=>Math.min(r.bottom,item.top+item.h)-Math.max(r.top,item.top)>Math.min(r.height,item.h)*.35||Math.abs(r.center-(item.y+item.h/2))<Math.max(8,medianH*.55));if(row){row.items.push(item);row.top=Math.min(row.top,item.top);row.bottom=Math.max(row.bottom,item.top+item.h);row.height=row.bottom-row.top;row.center=(row.top+row.bottom)/2}else rows.push({top:item.top,bottom:item.top+item.h,height:item.h,center:item.y+item.h/2,items:[item]})});return rows.sort((a,b)=>a.top-b.top).map(r=>r.items.sort((a,b)=>a.left-b.left).map(i=>cleanLine(i.text)).filter(Boolean).join('')).filter(Boolean).join('\n');
   }
   function paddleQuality(result,text){const raw=String(text||''),compact=raw.replace(/\s/g,''),han=hanCount(raw),latin=(raw.match(/[A-Za-z]{2,}/g)||[]).length,digits=(raw.match(/[0-9]/g)||[]).length,weird=(raw.match(/[<>{}\[\]$*_`~^|\\]/g)||[]).length,punc=(raw.match(/[。！？!?；;：:，,、]/g)||[]).length,lines=(raw.match(/\n/g)||[]).length+1,avg=(result?.items||[]).reduce((s,i)=>s+Number(i.score||0),0)/Math.max(1,result?.items?.length||0);return avg*60+han*1.1+Math.min(lines,20)*.5+punc*.35-latin*.08-digits*.45-weird*1.8+han/Math.max(1,compact.length)*20}
+  function paddleCandidateStrong(candidate){
+    const compact=String(candidate.text||'').replace(/\s/g,''),han=hanCount(candidate.text||''),latin=(String(candidate.text||'').match(/[A-Za-z]{2,}/g)||[]).length,weird=(String(candidate.text||'').match(/[<>{}\[\]$*_`~^|\\]/g)||[]).length;
+    return candidate.confidence>=68&&han>=14&&han/Math.max(1,compact.length)>=.35&&latin<Math.max(8,han*.6)&&weird<4;
+  }
   async function recognizePaddleBestOrientation(file){
-    const engine=await getPaddleOcr(),angles=[0,90,270],candidates=[];for(const angle of angles){$('#analysisMessage').textContent=`PaddleOCR 正在比較 ${angle}° 方向…`;const canvas=await rotateImage(file,angle,'clean'),started=performance.now(),[result]=await engine.predict(canvas,{textDetLimitSideLen:1280,textRecScoreThresh:.35});const text=layoutPaddleText(result),candidate={result,text,angle,mode:'paddle',confidence:Math.round(((result?.items||[]).reduce((s,i)=>s+Number(i.score||0),0)/Math.max(1,result?.items?.length||0))*100),elapsed:Math.round(performance.now()-started)};candidate.score=paddleQuality(result,text);candidates.push(candidate)}
-    const best=candidates.sort((a,b)=>b.score-a.score)[0];return {...best,paddle:true};
+    const engine=await getPaddleOcr(),candidates=[];
+    const run=async angle=>{ $('#analysisMessage').textContent=`PaddleOCR 正在辨識 ${angle}° 方向…`;const canvas=await rotateImage(file,angle,'clean'),started=performance.now(),inputSide=Math.max(canvas.width,canvas.height),detLimit=Math.min(1024,Math.max(768,Math.round(inputSide*.64))),[result]=await engine.predict(canvas,{textDetLimitSideLen:detLimit,textRecScoreThresh:.35});const text=layoutPaddleText(result),candidate={result,text,angle,mode:'paddle',confidence:Math.round(((result?.items||[]).reduce((s,i)=>s+Number(i.score||0),0)/Math.max(1,result?.items?.length||0))*100),elapsed:Math.round(performance.now()-started)};candidate.score=paddleQuality(result,text);candidates.push(candidate);return candidate};
+    const first=await run(0);
+    // Most pages are already upright. Avoid two extra full inferences unless the
+    // first result is clearly weak or contains an implausible character mix.
+    if(paddleCandidateStrong(first))return {...first,paddle:true,orientationChecked:1};
+    const rotated90=await run(90);
+    if(paddleCandidateStrong(rotated90)&&rotated90.score>first.score+8)return {...rotated90,paddle:true,orientationChecked:2};
+    await run(270);
+    const best=candidates.sort((a,b)=>b.score-a.score)[0];return {...best,paddle:true,orientationChecked:candidates.length};
   }
   function layoutText(result){
     const cleanLine=text=>String(text||'').replace(/[ \t]+/g,' ').replace(/\s+([，。！？；：、,.!?;:])/g,'$1').replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g,'$1').trim();
@@ -275,7 +292,7 @@
       }
       const text=normalizeOcrText(result.text);$('#extractedText').value=text;
       lastDiagnostic=result.paddle
-        ? `${engine} 完成；方向 ${result.angle}°；文字框 ${(result.result?.items||[]).length} 行；可信度 ${Math.round(result.confidence||0)}%${result.elapsed?`；方向耗時 ${result.elapsed} ms`:''}`
+        ? `${engine} 完成；${paddleRuntime}；方向 ${result.angle}°；比較 ${result.orientationChecked||3} 個方向；文字框 ${(result.result?.items||[]).length} 行；可信度 ${Math.round(result.confidence||0)}%${result.elapsed?`；方向耗時 ${result.elapsed} ms`:''}`
         : `${engine} 完成；方向 ${result.angle}°；版面 ${result.psm===11?'稀疏':'區塊'}；影像 ${result.mode||'清晰'}；可信度 ${Math.round(result.confidence||0)}%`;
       $('#analysisTitle').textContent=text?'請先檢查辨識文字':'未能辨識文字';
       $('#analysisMessage').textContent=text
@@ -287,6 +304,8 @@
     }
     catch(err){console.error(err);lastDiagnostic=`本機 OCR 錯誤：${err.message||'未知錯誤'}`;updateDiagnostics();$('#analysisTitle').textContent='文字辨識未能啟動';$('#analysisMessage').textContent='請檢查網絡後再試，或直接在下方貼上教材文字。';$('#scanProgress').classList.add('hidden');toast('辨識未完成，但仍可貼上文字使用');}
   }
+  $('#cameraPhoto').addEventListener('click',warmPaddle);
+  $('#galleryPhoto').addEventListener('click',warmPaddle);
   $('#cameraPhoto').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';if(file)openCropEditor(file)});
   $('#galleryPhoto').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';if(file)openCropEditor(file)});
   $('#cropBox').addEventListener('pointerdown',cropPointerDown);
@@ -326,7 +345,7 @@
   $('#historyBtn').onclick=()=>{renderHistory();show('history','學習紀錄')};
   $('#exportHistoryBtn').onclick=()=>{const data=JSON.stringify({exportedAt:new Date().toISOString(),history:getHistory()},null,2),url=URL.createObjectURL(new Blob([data],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=`ai-reading-history-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
   $('#clearHistoryBtn').onclick=()=>{if(!confirm('確定清除這個瀏覽器內的所有學習紀錄及錯題嗎？此操作不能復原。'))return;localStorage.removeItem(HISTORY_KEY);renderHistory();toast('學習紀錄已清除')};
-  function updateDiagnostics(){const chosen=CLOUD_TTS_ENABLED?`${CLOUD_VOICES[voiceId]} | cmn-CN | Google Chirp 3 HD`:'無（安全停用）';const lines=['版本：Google 自然普通話固定聲線版','文字辨識：PaddleOCR.js PP-OCRv5（端側；載入失敗才用 Tesseract 備援）',`成本模式：${CLOUD_TTS_ENABLED?'Google 免費額度；網站 80 萬字元硬停止':'尚未連接自然普通話；朗讀安全停用'}`,`音訊快取：${'caches'in window?'支援':'不支援'}`,`語音來源：${CLOUD_TTS_ENABLED?'Google cmn-CN Chirp 3 HD（Aoede 女聲／Puck 男聲）':'無；不使用瀏覽器語音'}`,`所選聲音：${chosen}`,`語速：${selectedRate}×（播放端調整，不重複耗用額度）`,`分句數：${segments.length}`,`狀態：${lastDiagnostic}`,`瀏覽器：${navigator.userAgent}`];$('#diagnosticText').textContent=lines.join('\n');}
+  function updateDiagnostics(){const chosen=CLOUD_TTS_ENABLED?`${CLOUD_VOICES[voiceId]} | cmn-CN | Google Chirp 3 HD`:'無（安全停用）';const lines=['版本：Google 自然普通話固定聲線版',`文字辨識：PaddleOCR.js PP-OCRv5 Mobile（端側；${paddleRuntime}；載入失敗才用 Tesseract 備援）`,`成本模式：${CLOUD_TTS_ENABLED?'Google 免費額度；網站 80 萬字元硬停止':'尚未連接自然普通話；朗讀安全停用'}`,`音訊快取：${'caches'in window?'支援':'不支援'}`,`語音來源：${CLOUD_TTS_ENABLED?'Google cmn-CN Chirp 3 HD（Aoede 女聲／Puck 男聲）':'無；不使用瀏覽器語音'}`,`所選聲音：${chosen}`,`語速：${selectedRate}×（播放端調整，不重複耗用額度）`,`分句數：${segments.length}`,`狀態：${lastDiagnostic}`,`瀏覽器：${navigator.userAgent}`];$('#diagnosticText').textContent=lines.join('\n');}
   $('#copyDiagnosticBtn').onclick=async()=>{try{await navigator.clipboard.writeText($('#diagnosticText').textContent);toast('已複製診斷資訊')}catch{toast('無法自動複製，請長按文字選取')}};
   {const savedRate=Number(localStorage.getItem('mandarinRate'));if([.55,.72,.85,1].includes(savedRate))selectedRate=savedRate;document.querySelector(`.rate-btn[data-rate="${selectedRate}"]`)?.click();updateDiagnostics()}
 </script>
