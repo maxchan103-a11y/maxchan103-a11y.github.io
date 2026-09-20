@@ -70,7 +70,7 @@
 
   <section class="screen" id="quiz">
     <div class="progress"><i id="quizProgress" style="width:33%"></i></div>
-    <div class="quiz-card"><div style="font-size:.85rem;color:var(--muted);font-weight:800">聽聲音，選答案</div><h2 id="quizTitle">第 1 題</h2><button class="listen" id="listenBtn" aria-label="播放題目">🔊</button><div class="answers" id="answers"></div><div class="feedback" id="feedback"></div></div>
+    <div class="quiz-card"><div style="font-size:.85rem;color:var(--muted);font-weight:800">聽完整句子，選出原句</div><h2 id="quizTitle">第 1 題</h2><button class="listen" id="listenBtn" aria-label="播放完整句子">🔊</button><div class="answers" id="answers"></div><div class="feedback" id="feedback"></div></div>
   </section>
 
   <section class="screen" id="done">
@@ -140,7 +140,7 @@
   }
   function speak(text,onend){if(CLOUD_TTS_ENABLED){void speakCloud(text,onend);return true}lastDiagnostic='自然普通話尚未連接；朗讀已安全停用';updateDiagnostics();toast('自然普通話尚未連接');return false}
   function splitText(text){
-    const clean=text.normalize('NFKC').replace(/\r/g,'').replace(/[ \t]+/g,' ').replace(/([\p{Script=Han}])\s+(?=[\p{Script=Han}])/gu,'$1').replace(/\n{2,}/g,'\n').trim();if(!clean)return [];
+    const clean=normalizeOcrText(text);if(!clean)return [];
     const raw=clean.match(/[^。！？!?；;\n]+[。！？!?；;]?/g)||[],out=[];
     raw.forEach(part=>{let s=part.trim();if(!/\p{Script=Han}/u.test(s))return;while(s.length>55){let cut=Math.max(s.lastIndexOf('，',50),s.lastIndexOf(',',50),s.lastIndexOf('、',50),s.lastIndexOf('：',50));if(cut<12)cut=50;const piece=s.slice(0,cut+1).trim();if(/\p{Script=Han}/u.test(piece))out.push(piece);s=s.slice(cut+1).trim()}if(s&&/\p{Script=Han}/u.test(s))out.push(s)});return out.slice(0,80);
   }
@@ -154,9 +154,24 @@
     if(ocrWorker)return ocrWorker;await loadOcrEngine();if(!window.Tesseract)throw new Error('OCR_ENGINE_UNAVAILABLE');
     ocrWorker=await Tesseract.createWorker('chi_sim+chi_tra',1,{logger:m=>{if(m.progress!=null){const pct=Math.max(4,Math.round(m.progress*100));$('#scanBar').style.width=pct+'%';$('#analysisMessage').textContent=m.status==='recognizing text'?`正在辨識文字 ${pct}%`:'首次載入中文辨識模型…'}}});await ocrWorker.setParameters({preserve_interword_spaces:'1'});return ocrWorker;
   }
+  function hanCount(s){return (s.match(/[\u3400-\u9fff]/g)||[]).length}
+  function rotateImage(file,angle){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,2200/Math.max(img.naturalWidth,img.naturalHeight)),w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale)),swap=angle%180!==0,canvas=document.createElement('canvas');canvas.width=swap?h:w;canvas.height=swap?w:h;const ctx=canvas.getContext('2d');ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(angle*Math.PI/180);ctx.drawImage(img,-w/2,-h/2,w,h);URL.revokeObjectURL(img.src);resolve(canvas)};img.onerror=reject;img.src=URL.createObjectURL(file)})}
+  async function recognizeBestOrientation(worker,file){
+    const first=await worker.recognize(file),firstText=(first.data.text||'').trim(),firstConfidence=Number(first.data.confidence||0),firstHan=hanCount(firstText);
+    // A sideways page often produces short gibberish with deceptively low confidence.
+    // Only pay for extra passes when the first result looks suspicious.
+    const suspicious=firstConfidence<72||firstHan<Math.max(8,firstText.replace(/\s/g,'').length*.35);
+    if(!suspicious)return {text:firstText,confidence:firstConfidence,angle:0};
+    const candidates=[{text:firstText,confidence:firstConfidence,angle:0}];
+    for(const angle of [90,270,180]){const canvas=await rotateImage(file,angle),result=await worker.recognize(canvas),text=(result.data.text||'').trim(),confidence=Number(result.data.confidence||0);candidates.push({text,confidence,angle})}
+    return candidates.sort((a,b)=>(b.confidence+Math.min(hanCount(b.text),120)*.12)-(a.confidence+Math.min(hanCount(a.text),120)*.12))[0];
+  }
+  function normalizeOcrText(text){
+    return text.normalize('NFKC').replace(/\r/g,'').replace(/[ \t]+/g,' ').replace(/([^。！？!?；;：:])\n(?=[\u3400-\u9fff「『“”])/g,'$1').replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g,'$1').replace(/\n{2,}/g,'\n').trim();
+  }
   async function analyse(file){
     const img=document.createElement('img');img.alt='剛拍攝的教材';img.src=URL.createObjectURL(file);$('#thumb').replaceChildren(img);show('analyse','辨識');$('#analysisTitle').textContent='正在辨識教材';$('#analysisMessage').textContent='首次使用需下載中文模型，請保持頁面開啟。';$('#scanProgress').classList.remove('hidden');$('#scanBar').style.width='3%';$('#extractedText').value='';updateTextStats();
-    try{const worker=await getWorker();const result=await worker.recognize(file);const text=(result.data.text||'').trim();$('#extractedText').value=text;lastDiagnostic=`本機 OCR 完成；可信度 ${Math.round(result.data.confidence||0)}%`;$('#analysisTitle').textContent=text?'請先檢查辨識文字':'未能辨識文字';$('#analysisMessage').textContent=text?'已自動按中文標點及換行分句；如有錯字可直接修改。':'請換一張更清楚、保持文字直向且光線均勻的照片，或直接貼上文字。';$('#scanBar').style.width='100%';setTimeout(()=>$('#scanProgress').classList.add('hidden'),500);updateTextStats();}
+    try{const worker=await getWorker();const result=await recognizeBestOrientation(worker,file),text=normalizeOcrText(result.text);$('#extractedText').value=text;lastDiagnostic=`本機 OCR 完成；方向 ${result.angle}°；可信度 ${Math.round(result.confidence||0)}%`;$('#analysisTitle').textContent=text?'請先檢查辨識文字':'未能辨識文字';$('#analysisMessage').textContent=text?(result.confidence<65?'辨識可信度較低，請檢查文字或重新拍攝。':'已自動校正方向並按中文標點分句；如有錯字可直接修改。'):'請換一張更清楚、保持文字直向且光線均勻的照片，或直接貼上文字。';$('#scanBar').style.width='100%';setTimeout(()=>$('#scanProgress').classList.add('hidden'),500);updateTextStats();}
     catch(err){console.error(err);lastDiagnostic=`本機 OCR 錯誤：${err.message||'未知錯誤'}`;updateDiagnostics();$('#analysisTitle').textContent='文字辨識未能啟動';$('#analysisMessage').textContent='請檢查網絡後再試，或直接在下方貼上教材文字。';$('#scanProgress').classList.add('hidden');toast('辨識未完成，但仍可貼上文字使用');}
   }
   $('#photo').addEventListener('change',e=>{if(e.target.files[0])analyse(e.target.files[0])});
@@ -185,7 +200,7 @@
     const pool=segments.filter(s=>s.length>=3);quizData=[];for(let i=0;i<Math.min(5,pool.length);i++){const right=pool[i],wrong=pool[(i+1)%pool.length];if(right!==wrong)quizData.push({right,opts:i%2?[wrong,right]:[right,wrong]})}
     if(!quizData.length)return finish();quizAt=0;correct=0;show('quiz','聆聽練習');renderQuiz();
   }
-  function renderQuiz(){const q=quizData[quizAt];$('#quizTitle').textContent=`第 ${quizAt+1} 題`;$('#quizProgress').style.width=((quizAt+1)/quizData.length*100)+'%';$('#feedback').textContent='';$('#answers').innerHTML='';q.opts.forEach(o=>{const b=document.createElement('button');b.className='answer';b.dataset.answer=o;b.textContent=o;b.style.font='800 1rem/1.5 inherit';b.style.padding='16px 10px';b.onclick=()=>check(b,q.right);$('#answers').appendChild(b)});setTimeout(()=>speak(q.right),250)}
+  function renderQuiz(){const q=quizData[quizAt];$('#quizTitle').textContent=`第 ${quizAt+1} 題（整句）`;$('#quizProgress').style.width=((quizAt+1)/quizData.length*100)+'%';$('#feedback').textContent='';$('#answers').innerHTML='';q.opts.forEach(o=>{const b=document.createElement('button');b.className='answer';b.dataset.answer=o;b.textContent=o;b.style.font='800 1rem/1.5 inherit';b.style.padding='16px 10px';b.onclick=()=>check(b,q.right);$('#answers').appendChild(b)});setTimeout(()=>speak(q.right),250)}
   $('#listenBtn').onclick=()=>speak(quizData[quizAt].right);
   function check(btn,right){document.querySelectorAll('.answer').forEach(b=>b.disabled=true);if(btn.dataset.answer===right){btn.classList.add('correct');$('#feedback').textContent='答對了';correct++}else{sessionWrong.push({selected:btn.dataset.answer,right});btn.classList.add('wrong');[...document.querySelectorAll('.answer')].find(b=>b.dataset.answer===right)?.classList.add('correct');$('#feedback').textContent='再聽一次，綠色的是正確句子';speak(right)}setTimeout(()=>{quizAt++;if(quizAt<quizData.length)renderQuiz();else finish()},1250)}
   function finish(){saveHistory({date:new Date().toISOString(),mode:'reading',count:segments.length,score:correct,total:quizData.length,wrongs:sessionWrong,rate:selectedRate,voice:gender,preview:segments.join('').slice(0,45)});$('#doneMessage').textContent='教材已逐句跟讀，亦完成了聆聽練習。';$('#readCount').textContent=segments.length;$('#readCountLabel').textContent='已跟讀';$('#score').textContent=quizData.length?`${correct}/${quizData.length}`:'—';$('#scoreLabel').textContent='答對';$('#minuteCount').textContent=Math.max(1,Math.ceil(segments.join('').length/120));show('done','完成')}
